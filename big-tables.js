@@ -1,4 +1,17 @@
 const BigTable = (function() {
+  /*
+   *  UTILITY FUNCTIONS
+   */
+
+  const isString = (value) => {
+    typeof value === 'string' || value instanceof String;
+  };
+
+  const isObject = (value) => {
+    return value !== null && typeof value === 'object' &&
+      !(value instanceof String) && !(value instanceof Number)
+  }
+
   const findMutualProperties = (arrOfObjs) => {
     // build an initial list of properties to whittle down
     let mutualProperties = [];
@@ -23,17 +36,21 @@ const BigTable = (function() {
   };
 
   const findAllProperties = (arrOfObjs) => {
-    const allPropties = [];
+    const allProperties = [];
     arrOfObjs.forEach((obj) => {
       for (const prop in obj) {
-        if (!allPropties.includes(prop)) {
-          allPropties.push(prop);
+        if (!allProperties.includes(prop)) {
+          allProperties.push(prop);
         }
       }
     });
 
-    return allPropties;
+    return allProperties;
   };
+
+  /*
+   *  BigTable Class
+   */
 
   class BigTable {
     constructor(options) {
@@ -87,6 +104,9 @@ const BigTable = (function() {
     }
   };
   
+  /*
+   *  VALIDATION AND INITIALIZER
+   */
 
   return function(itemList, options) {
     // validate the itemList
@@ -98,7 +118,7 @@ const BigTable = (function() {
     
     // check to see if any items in the array are not objects
     const nonObjectitem = itemList.find((item) => {
-      return !(item !== null && typeof item === 'object');
+      return !isObject(item);
     });
     
     if (nonObjectitem) {
@@ -109,7 +129,7 @@ const BigTable = (function() {
     // if propertyMode is an array, make sure it only contains strings
     if (Array.isArray(options.propertyMode)) {
       options.propertyMode.forEach((propertyName) => {
-        if (typeof propertyName !== 'string' && !(propertyName instanceof String)) {
+        if (!isString(propertyName)) {
           throw new Error(`Explicit property names were passed in as the ` +
             `property mode, but some of the values are not strings.`);
         }
@@ -138,14 +158,20 @@ const BigTable = (function() {
     }
 
     // validate classes as strings
+    if (options.containerClass) {
+      if (!isString(options.containerClass)) {
+        throw new Error(`The container class provided was not a string value: ${option.containerClass}`);
+      }
+    }
+
     if (options.rowClass) {
-      if (typeof options.rowClass !== 'string' && !(options.rowClass instanceof String)) {
+      if (!isString(options.rowClass)) {
         throw new Error(`The row class provided was not a string value: ${option.rowClass}`);
       }
     }
     
     if (options.cellClass) {
-      if (typeof options.cellClass !== 'string' && !(options.cellClass instanceof String)) {
+      if (!isString(options.cellClass)) {
         throw new Error(`The cell class provided was not a string value: ${option.cellClass}`);
       }
     }
@@ -154,6 +180,7 @@ const BigTable = (function() {
       options
 
       orientation: column/row
+      containerClass: *string class name*
       cellClass: *string class name*
       rowClass: *string class name*
       propertyMode: all/mutual/[array of property names]
