@@ -1,5 +1,21 @@
 const BigTable = (function() {
   /*
+   *  ADDING CSS CLASSES
+   */
+
+  const style = document.createElement('style');
+  style.innerHTML = `
+  .big-table-column {
+    user-select:none;
+  }
+  .big-table-column:hover {
+    user-select:initial;
+  }
+  `;
+
+  document.head.appendChild(style);
+
+  /*
    *  UTILITY FUNCTIONS
    */
 
