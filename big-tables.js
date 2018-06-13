@@ -3,6 +3,10 @@ const BigTable = (function() {
    *  UTILITY FUNCTIONS
    */
 
+  const throwError = (errorText) => {
+    throw new Error(`Big Tables: ${errorText}`);
+  };
+  
   const isString = (value) => {
     typeof value === 'string' || value instanceof String;
   };
@@ -12,6 +16,7 @@ const BigTable = (function() {
       !(value instanceof String) && !(value instanceof Number)
   }
 
+  // loop through an array of objects and find the properties common between them
   const findMutualProperties = (arrOfObjs) => {
     // build an initial list of properties to whittle down
     let mutualProperties = [];
@@ -53,9 +58,12 @@ const BigTable = (function() {
    */
 
   class BigTable {
-    constructor(options) {
-      this.objects = options.itemList;
-      this.rowClass = options.rowClass || null;
+    constructor(itemList, options) {
+      /* set properties bsaed on user input */
+
+      this.objects = itemList;
+      this.containerClass = options.containerClass || null;
+      this.columnClass = options.columnClass || null;
       this.cellClass = options.cellClass || null;
 
       this.propertyMode = options.propertyMode || 'mutual';
@@ -76,16 +84,94 @@ const BigTable = (function() {
 
       // set column width value
       if (options.columnWidths) {
-        this.columnWidths = options.columnWidths.map((widthValue) => {
+        this.gridTemplate = options.columnWidths.map((widthValue) => {
           return widthValue + 'fr';
-        }); 
+        });
       } else {
         // column widths default to 1fr
-        this.columnWidths = '1fr,'.repeat(this,properties.length).split(',');
-        this.columnWidths.pop(); // last element in array will be emptyi
+        this.gridTemplate = '1fr,'.repeat(this.properties.length).split(',');
+        this.gridTemplate.pop(); // last element in array will be empty
       }
 
-      this.node = createContainer();
+      /* initialize some internal properties */
+
+      this.node = this.createContainer();
+      this.offset = 0;
+      this.rowCount = 20;
+    }
+
+    createContainer() {
+      const container = document.createElement('div');
+      container.className = `big-table-container ${this.containerClass || ''}`;
+      container.style.display = 'grid';
+      container.style.gridTemplate = `1fr / ${this.gridTemplate.join(' ')}`;
+
+      return container;
+    }
+
+    createColumn() {
+      const columnDiv = document.createElement('div');
+      columnDiv.className = `big-table-column ${this.columnClass || ''}`;
+      
+      const gridTemplateArr = '1fr,'.repeat(this.rowCount).split(',');
+      gridTemplateArr.pop(); // last element in array will be empty
+      columnDiv.style.gridTemplate = `${gridTemplateArr.join(' ')} / 1fr`;
+
+      return columnDiv;
+    }
+
+    createHeader(headerName) {
+      const headerDiv = document.createElement('div');
+      headerDiv.className = 'big-table-header';
+      headerDiv.textContent = headerName;
+      headerDiv.style.display = 'grid';
+
+      return headerDiv;
+    }
+
+    createValueCell(value, rowNumber, columnName) {
+      const valueCellDiv = document.createElement('div');
+      valueCellDiv.className = `big-table-value-cell big-table-row-${rowNumber}` +
+        ` big-table-${columnName}-value-cell ${this.cellClass || ''}`;
+      valueCellDiv.textContent = value;
+
+      return valueCellDiv;
+    }
+
+    draw() {
+      // create document fragments for the value cells for each column div
+      // simultaneously create the header divs for each column
+      const columnFragments = {};
+      for (const headerTitle of this.properties) {
+        columnFragments[headerTitle] = document.createDocumentFragment();
+
+        const headerDiv = this.createHeader(headerTitle);
+        columnFragments[headerTitle].appendChild(headerDiv);
+
+        // create all the value cells for this column
+        for (let i = this.offset; i < this.rowCount + this.offset; i++) {
+          const currentObj = this.objects[i];
+          const cellValue = currentObj[headerTitle];
+          
+          const valueCellDiv = this.createValueCell(cellValue, i, headerTitle);
+          columnFragments[headerTitle].appendChild(valueCellDiv);
+        }
+      }
+
+      // create the columns
+      const columnDivs = document.createDocumentFragment();
+      for (const headerTitle in columnFragments) {
+        const columnDiv = this.createColumn();
+        columnDiv.appendChild(columnFragments[headerTitle]);
+        columnDivs.appendChild(columnDiv);
+      }
+      
+      // erase the whole table
+      while (this.node.children.length) {
+        this.node.children[0].remove();
+      }
+
+      this.node.appendChild(columnDivs);
     }
 
     hideColumn(columnNameOrIndex) {
@@ -112,25 +198,29 @@ const BigTable = (function() {
     // validate the itemList
 
     if (!Array.isArray(itemList)) {
-      throw Error(`itemList must be an Array, but a ${typeof itemList}' +
-        was provided.`);
+      throwError(`itemList must be an Array, but a ${typeof itemList}` +
+        `was provided.`);
     }
     
     // check to see if any items in the array are not objects
+    let foundNonObjectItem = false; // this flag is required because the non-object item may be falsey or undefined
     const nonObjectitem = itemList.find((item) => {
-      return !isObject(item);
+      if (!isObject(item)) {
+        foundNonObjectItem = true;
+        return true;
+      }
     });
     
-    if (nonObjectitem) {
-      throw Error(`itemList must be an Array of Objects, but a ` +
-      `${typeof nonObjectitem} was found.`);
+    if (foundNonObjectItem) {
+      throwError(`itemList must be an Array of Objects, but a ` +
+      `${typeof nonObjectitem} value was found.`);
     }
 
     // if propertyMode is an array, make sure it only contains strings
     if (Array.isArray(options.propertyMode)) {
       options.propertyMode.forEach((propertyName) => {
         if (!isString(propertyName)) {
-          throw new Error(`Explicit property names were passed in as the ` +
+          throwError(`Explicit property names were passed in as the ` +
             `property mode, but some of the values are not strings.`);
         }
       });
@@ -143,7 +233,7 @@ const BigTable = (function() {
         if (valueMatch) {
           valueMatch = valueMatch.includes('fr') ? valueMatch : valueMatch + 'fr';
         } else {
-          throw new Error(`Column widths can only be numbers or fr values, ` +
+          throwError(`Column widths can only be numbers or fr values, ` +
             `but the value ${valueMatch} was found in the array.`);
         }
       });
@@ -152,7 +242,7 @@ const BigTable = (function() {
     // validate orientation
     if (options.orientation) {
       if (!['column', 'row'].includes(options.orientation)) {
-        throw new Error(`An explicit orientation value was supplied, but ` +
+        throwError(`An explicit orientation value was supplied, but ` +
           `it was not a valid value: ${options.orientation}`);
       }
     }
@@ -160,32 +250,38 @@ const BigTable = (function() {
     // validate classes as strings
     if (options.containerClass) {
       if (!isString(options.containerClass)) {
-        throw new Error(`The container class provided was not a string value: ${option.containerClass}`);
+        throwError(`The container class provided was not a string value: ${option.containerClass}`);
       }
     }
 
-    if (options.rowClass) {
-      if (!isString(options.rowClass)) {
-        throw new Error(`The row class provided was not a string value: ${option.rowClass}`);
+    if (options.columnClass) {
+      if (!isString(options.columnClass)) {
+        throwError(`The row class provided was not a string value: ${option.columnClass}`);
       }
     }
     
     if (options.cellClass) {
       if (!isString(options.cellClass)) {
-        throw new Error(`The cell class provided was not a string value: ${option.cellClass}`);
+        throwError(`The cell class provided was not a string value: ${option.cellClass}`);
       }
     }
 
+    return new BigTable(itemList, options);
+
     /*
+      required
+
+        itemList: array of objects
+
       options
 
-      orientation: column/row
-      containerClass: *string class name*
-      cellClass: *string class name*
-      rowClass: *string class name*
-      propertyMode: all/mutual/[array of property names]
-      columnWidths: [array of objects with headers as property names and fr
-        values, each object accounts for a different combination of headers]
+        orientation: column/row
+        containerClass: *string class name*
+        cellClass: *string class name*
+        rowClass: *string class name*
+        propertyMode: all/mutual/[array of property names]
+        columnWidths: [array of objects with headers as property names and fr
+          values, each object accounts for a different combination of headers]
       
     */
 
