@@ -50,8 +50,8 @@ const BigTable = (function() {
   const findMutualProperties = (arrOfObjs) => {
     // build an initial list of properties to whittle down
     let mutualProperties = [];
-    for (const prop in arrOfObjs.shift()) {
-      mutualProperties.push(prop);   
+    for (const prop in arrOfObjs[0]) {
+      mutualProperties.push(prop);
     }
 
     // loop through rest of objs and attempt to remove any non-mutual props
