@@ -5,10 +5,24 @@ const BigTable = (function() {
 
   const style = document.createElement('style');
   style.innerHTML = `
-  .big-table-column {
+  .big-table-scroll-bar-container {
+    position:relative;
+    grid-column:-2;
+    grid-row:1;
+    background:blue;
+  }
+  big-table-scroll-bar-head {
+    position:absolute;
+  }
+
+  .big-table-header {
     user-select:none;
   }
-  .big-table-column:hover {
+
+  .big-table-value-cell {
+    user-select:none;
+  }
+  .big-table-value-cell.enable-select {
     user-select:initial;
   }
   `;
@@ -24,7 +38,7 @@ const BigTable = (function() {
   };
   
   const isString = (value) => {
-    typeof value === 'string' || value instanceof String;
+    return typeof value === 'string' || value instanceof String;
   };
 
   const isObject = (value) => {
@@ -77,6 +91,7 @@ const BigTable = (function() {
     constructor(itemList, options) {
       /* set properties bsaed on user input */
 
+      this.options = options;
       this.objects = itemList;
       this.containerClass = options.containerClass || null;
       this.columnClass = options.columnClass || null;
@@ -114,13 +129,39 @@ const BigTable = (function() {
       this.node = this.createContainer();
       this.offset = 0;
       this.rowCount = 20;
+
+      // create scroll bar if required
+      if (options.scrollBar) {
+        this.createScrollBar();
+      }
     }
 
     createContainer() {
       const container = document.createElement('div');
       container.className = `big-table-container ${this.containerClass || ''}`;
       container.style.display = 'grid';
-      container.style.gridTemplate = `1fr / ${this.gridTemplate.join(' ')}`;
+      container.style.gridTemplate = `1fr / ${this.gridTemplate.join(' ')}${this.options.scrollBar ? ` 30px` : ''}`;
+
+      container.addEventListener('wheel', (e) => {
+        // determine determine how many steps to count the scroll as
+        let scrollCount = 0;
+        if (e.deltaY > 0) {
+          let stepCounter = 0;
+          while (e.deltaY > stepCounter) {
+            stepCounter += 50;
+            scrollCount++;
+          }
+        } else {
+          
+          let stepCounter = 0;
+          while (e.deltaY < stepCounter) {
+            stepCounter -= 50;
+            scrollCount--;
+          }
+        }
+
+        this.performScroll(scrollCount);
+      });
 
       return container;
     }
@@ -150,6 +191,24 @@ const BigTable = (function() {
       valueCellDiv.className = `big-table-value-cell big-table-row-${rowNumber}` +
         ` big-table-${columnName}-value-cell ${this.cellClass || ''}`;
       valueCellDiv.textContent = value;
+
+      const tableContainer = this.node;
+
+      valueCellDiv.addEventListener('mouseover', function(e) {
+        const allValueCells = Array.from(tableContainer.getElementsByClassName(`big-table-value-cell`));
+        allValueCells.forEach((cell) => cell.classList.remove('enable-select'));
+
+        if (e.ctrlKey) {
+          // make all cells in this row selectable
+          const rowValueCells = Array.from(tableContainer.getElementsByClassName(`big-table-row-${rowNumber}`));
+          rowValueCells.forEach((cell) => cell.classList.add('enable-select'));
+        } else {
+          // make all cells in this column selectable
+          const columnValueCells = Array.from(tableContainer.getElementsByClassName(`big-table-${columnName}-value-cell`));
+          columnValueCells.forEach((cell) => cell.classList.add('enable-select'));
+        }
+
+      });
 
       return valueCellDiv;
     }
@@ -183,9 +242,18 @@ const BigTable = (function() {
       }
       
       // erase the whole table
-      while (this.node.children.length) {
-        this.node.children[0].remove();
+      if (this.options.scrollBar) {
+        for (let i = this.node.children.length - 1; i >= 0; i--) {
+          if (!this.node.children[i].classList.contains('big-table-scroll-bar-container')) {
+            this.node.children[i].remove();
+          }
+        }
+      } else {
+        while (this.node.children.length !== 0) {
+          this.node.children[0].remove();
+        }
       }
+        
 
       this.node.appendChild(columnDivs);
     }
@@ -203,6 +271,36 @@ const BigTable = (function() {
       columnValueCells.forEach((valueCell) => {
         valueCell.style.display = 'none';
       });
+    }
+
+    // scrolling stuff
+
+    determineMaxOffset() {
+      return this.objects.length - this.rowCount;
+    }
+
+    createScrollBar() {
+      const scrollBarContainer = document.createElement('div');
+      scrollBarContainer.className = 'big-table-scroll-bar-container';
+
+      const scrollBarHead = document.createElement('div');
+      scrollBarHead.className = 'big-table-scroll-bar-head';
+
+      scrollBarContainer.appendChild(scrollBarHead);
+      this.node.appendChild(scrollBarContainer);
+    }
+
+    performScroll(steps) {
+      const desiredOffset = this.offset + steps;
+      const notTooHigh = desiredOffset < this.determineMaxOffset();
+      
+      if (notTooHigh && desiredOffset >= 0) {
+        this.offset = desiredOffset;
+      } else {
+        return;
+      }
+
+      this.draw();
     }
   };
   
@@ -266,19 +364,19 @@ const BigTable = (function() {
     // validate classes as strings
     if (options.containerClass) {
       if (!isString(options.containerClass)) {
-        throwError(`The container class provided was not a string value: ${option.containerClass}`);
+        throwError(`The container class provided was not a string value: ${options.containerClass}`);
       }
     }
 
     if (options.columnClass) {
       if (!isString(options.columnClass)) {
-        throwError(`The row class provided was not a string value: ${option.columnClass}`);
+        throwError(`The row class provided was not a string value: ${options.columnClass}`);
       }
     }
     
     if (options.cellClass) {
       if (!isString(options.cellClass)) {
-        throwError(`The cell class provided was not a string value: ${option.cellClass}`);
+        throwError(`The cell class provided was not a string value: ${options.cellClass}`);
       }
     }
 
