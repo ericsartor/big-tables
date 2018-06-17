@@ -1,0 +1,23 @@
+{
+  "name": "big-tables",
+  "version": "1.0.0",
+  "description": "",
+  "main": "assemble.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node assemble.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ericsartor/big-tables.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ericsartor/big-tables/issues"
+  },
+  "homepage": "https://github.com/ericsartor/big-tables#readme"
+}
