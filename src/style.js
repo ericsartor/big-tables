@@ -6,8 +6,11 @@ const style = document.createElement('style');
     grid-row:1;
     background:blue;
   }
-  big-table-scroll-bar-head {
-    position:absolute;
+  .big-table-scroll-bar-head {
+    position:relative;
+    background-color:black;
+    width:80%;
+    margin-left:10%;
   }
 
   .big-table-header {

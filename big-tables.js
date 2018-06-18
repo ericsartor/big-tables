@@ -6,8 +6,11 @@ const BigTable = (function() {const style = document.createElement('style');
     grid-row:1;
     background:blue;
   }
-  big-table-scroll-bar-head {
-    position:absolute;
+  .big-table-scroll-bar-head {
+    position:relative;
+    background-color:black;
+    width:80%;
+    margin-left:10%;
   }
 
   .big-table-header {
@@ -219,26 +222,95 @@ class BigTable {
     });
   }
 
-  // scrolling stuff
+  /* SCROLLING STUFF */
 
+  // returns the maximum the table offset can be without showing blank space
   determineMaxOffset() {
     return this.objects.length - this.rowCount;
+  }
+
+  determineMaxScrollBarTop() {
+    return 100 - parseFloat(this.scrollBarHead.style.height);;
+  }
+
+  determineScrollBarScalingAmount() {
+    let amount = 100;
+
+    if (this.objects.length <= this.rowCount) return amount;
+
+    const excessRows = this.objects.length - this.rowCount;
+
+    let subtractAmount = 1;
+    for (let i = 0; i < excessRows; i++) {
+      amount -= subtractAmount;
+
+      if (amount <= 20) return amount;
+
+      subtractAmount *= 0.99;
+    }
+
+    return amount;
   }
 
   createScrollBar() {
     const scrollBarContainer = document.createElement('div');
     scrollBarContainer.className = 'big-table-scroll-bar-container';
+    this.scrollBarContainer = scrollBarContainer;
 
     const scrollBarHead = document.createElement('div');
     scrollBarHead.className = 'big-table-scroll-bar-head';
+    scrollBarHead.style.height = this.determineScrollBarScalingAmount() + '%';
+    this.scrollBarHead = scrollBarHead;
+
+    const that = this;
+    scrollBarHead.addEventListener('mousedown', (e) => {
+      that.grabbingScrollBar = true;
+      that.scrollBarGrabPreviousY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => {
+      that.grabbingScrollBar = false;
+      that.scrollBarGrabPreviousY = null;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!that.grabbingScrollBar) return;
+
+      const containerRect = this.scrollBarContainer.getBoundingClientRect();
+
+      if (e.clientY < containerRect.top) {
+        this.performScroll(-this.offset);
+      } else if (e.clientY > containerRect.bottom) {
+        this.performScroll(this.determineMaxOffset() - this.offset);
+      } else {
+        const totalPixelsOfMovement = this.determineMaxScrollBarTop() / 100 * containerRect.height;
+        const rowsPerPixel = this.objects.length / totalPixelsOfMovement;
+        const moveAmountPixels = e.clientY - that.scrollBarGrabPreviousY;
+        const totalRowsMoved = rowsPerPixel * moveAmountPixels;
+  
+        
+        this.performScroll(Math.round(totalRowsMoved));
+      }
+
+      that.scrollBarGrabPreviousY = e.clientY;
+      this.updateScrollHead();
+    })
 
     scrollBarContainer.appendChild(scrollBarHead);
     this.node.appendChild(scrollBarContainer);
   }
 
+  updateScrollHead() {
+    const maximumTop = this.determineMaxScrollBarTop();
+    const maxOffset = this.determineMaxOffset();
+    const newTop = (this.offset / maxOffset) * maximumTop;
+    this.scrollBarHead.style.top = newTop + '%';
+  }
+
+  // updates the table offset then re-draws table
   performScroll(steps) {
     const desiredOffset = this.offset + steps;
-    const notTooHigh = desiredOffset < this.determineMaxOffset();
+    const notTooHigh = desiredOffset <= this.determineMaxOffset();
     
     if (notTooHigh && desiredOffset >= 0) {
       this.offset = desiredOffset;
@@ -246,6 +318,7 @@ class BigTable {
       return;
     }
 
+    this.updateScrollHead();
     this.draw();
   }
 
