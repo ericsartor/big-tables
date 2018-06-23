@@ -44,7 +44,7 @@ function BigTable(itemList, options) {
 
   const createHeader = (headerName) => {
     const headerDiv = document.createElement('div');
-    headerDiv.className = 'big-table-header';
+    headerDiv.className = `big-table-header ${this._props.headerClass || ''}`;
     headerDiv.textContent = headerName;
     headerDiv.style.display = 'grid';
 
@@ -273,7 +273,9 @@ function BigTable(itemList, options) {
     return allProperties;
   }
 
-  /* PUBLIC METHODS AND PROPERTIES */
+  /**********************************
+  ** PUBLIC METHODS AND PROPERTIES **
+  ***********************************/
 
   this.place = (options) => {
     if (!options) {
@@ -337,6 +339,7 @@ function BigTable(itemList, options) {
   this.objects = itemList;
   this._props.containerClass = options.containerClass || null;
   this._props.columnClass = options.columnClass || null;
+  this._props.headerClass = options.headerClass || null;
   this._props.cellClass = options.cellClass || null;
 
   this._props.propertyMode = options.propertyMode || 'mutual';

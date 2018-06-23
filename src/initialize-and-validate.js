@@ -63,6 +63,12 @@ return function(itemList, options) {
       throw Utils.generateError(`The row class provided was not a string value: ${options.columnClass}`);
     }
   }
+
+  if (options.headerClass) {
+    if (!Utils.isString(options.headerClass)) {
+      throw Utils.generateError(`The header class provided was not a string value: ${options.headerClass}`);
+    }
+  }
   
   if (options.cellClass) {
     if (!Utils.isString(options.cellClass)) {
