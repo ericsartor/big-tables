@@ -83,17 +83,20 @@ function BigTable(itemList, options) {
     // simultaneously create the header divs for each column
     const columnFragments = {};
     for (const headerTitle of this.columnHeaders) {
+
+
       columnFragments[headerTitle] = document.createDocumentFragment();
 
       const headerDiv = createHeader(headerTitle);
       columnFragments[headerTitle].appendChild(headerDiv);
 
       // create all the value cells for this column
+      const propertyName = this._props.propertyMap ? this._props.propertyMap[headerTitle] : headerTitle;
       for (let i = this.offset; i < this._props.rowCount + this.offset; i++) {
         const currentObj = this.objects[i];
-        const cellValue = currentObj[headerTitle];
+        const cellValue = currentObj[propertyName] !== undefined ? currentObj[propertyName] : '[no value]';
         
-        const valueCellDiv = createValueCell(cellValue, i, headerTitle);
+        const valueCellDiv = createValueCell(cellValue, i, propertyName);
         columnFragments[headerTitle].appendChild(valueCellDiv);
       }
     }
@@ -230,47 +233,9 @@ function BigTable(itemList, options) {
       return;
     }
 
-    updateScrollHead();
+    if (this._props.scrollBar) updateScrollHead();
+    
     draw();
-  }
-
-  /* UTILITIES */
-
-  // loop through an array of objects and find the properties common between them
-  const findMutualProperties = (arrOfObjs) => {
-    // build an initial list of properties to whittle down
-    let mutualProperties = [];
-    for (const prop in arrOfObjs[0]) {
-      mutualProperties.push(prop);
-    }
-
-    // loop through rest of objs and attempt to remove any non-mutual props
-    arrOfObjs.forEach((obj) => {
-      const propsFromThisObj = [];
-      for (const prop in obj) {
-        propsFromThisObj.push(prop);
-      }
-
-      // remove properties that this object didn't have
-      mutualProperties = mutualProperties.filter((prop) => {
-        return propsFromThisObj.includes(prop);
-      });
-    });
-
-    return mutualProperties;
-  }
-
-  const findAllProperties = (arrOfObjs) => {
-    const allProperties = [];
-    arrOfObjs.forEach((obj) => {
-      for (const prop in obj) {
-        if (!allProperties.includes(prop)) {
-          allProperties.push(prop);
-        }
-      }
-    });
-
-    return allProperties;
   }
 
   /**********************************
@@ -287,7 +252,7 @@ function BigTable(itemList, options) {
       let parentNode;
 
       if (Utils.isString(options.appendChild)) {
-        parentNode = document.getElementsById(options.appendChild);
+        parentNode = document.getElementById(options.appendChild);
 
         if (parentNode === null) {
           throw Utils.generateError(`Tried to append table to page using` +
@@ -307,14 +272,14 @@ function BigTable(itemList, options) {
       let insertBeforeNode;
 
       if (Utils.isString(options.insertBefore)) {
-        insertBeforeNode = document.getElementsById(options.insertBefore);
+        insertBeforeNode = document.getElementById(options.insertBefore);
 
         if (insertBeforeNode === null) {
           throw Utils.generateError(`Tried to append table to page using insertBefore` +
             ` option, but string argument was not an existing ID: ` +
             options.insertBefore);
         }
-      } else if (options.appendChild instanceof HTMLElement) {
+      } else if (options.insertBefore instanceof HTMLElement) {
         insertBeforeNode = options.insertBefore;
       } else {
         throw Utils.generateError(`Tried to append table to page using insertBefore` +
@@ -332,37 +297,54 @@ function BigTable(itemList, options) {
     draw();
   }
 
+  this.update = () => {
+    draw();
+  }
+
+  // filter the table contents
+  this.search = (options) => {
+    /*
+    options:
+        whitelistTerms - at least one of these strings must be found in a row for a match
+        blacklistTerms - if any of these strings are found in a row, they are not a match
+        whitelistColumns - only search in columns with these headers
+        blacklistColumns - search in all columns other than those with these headers
+
+        including both whitelistColumns and blacklistColumns will throw an error
+        including both whitelistTerms and blacklistTerms is fine
+    */
+  }
+
   /* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR */
 
   this._props = {}; // holds all the private properties that the user won't need to see
   this._props.options = options;
-  this.objects = itemList;
+  this.objects = itemList; // this is only a reference, so when the external itemList gets updated, the internal itemList does as well
   this._props.containerClass = options.containerClass || null;
   this._props.columnClass = options.columnClass || null;
   this._props.headerClass = options.headerClass || null;
   this._props.cellClass = options.cellClass || null;
+  this.columnHeaders = options.columnHeaders;
 
-  this._props.propertyMode = options.propertyMode || 'mutual';
-
-  // create the property list depending on the property mode
-  if (!Array.isArray(this._props.propertyMode)) {
-    switch (this._props.propertyMode) {
-      case 'all':
-        this.columnHeaders = findAllProperties(this.objects);
-        break;
-      case 'mutual':
-        this.columnHeaders = findMutualProperties(this.objects);
-        break;
+  this._props.propertyMap = (() => {
+    if (options.headerMap === undefined) {
+      return undefined;
     }
-  } else {
-    this.columnHeaders = this._props.propertyMode;
-  }
+
+    // reverses the header map so the draw function can get a property name from
+    // a column header title
+    const map = {};
+    for (const propertyName in options.headerMap) {
+      const headerTitle = options.headerMap[propertyName];
+      map[headerTitle] = propertyName;
+    }
+
+    return map;
+  })()
 
   // set column width value
   if (options.columnWidths) {
-    this._props.gridTemplate = options.columnWidths.map((widthValue) => {
-      return widthValue + 'fr';
-    });
+    this._props.gridTemplate = options.columnWidths;
   } else {
     // column widths default to 1fr
     this._props.gridTemplate = '1fr,'.repeat(this.columnHeaders.length).split(',');
