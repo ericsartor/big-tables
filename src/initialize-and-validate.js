@@ -12,6 +12,8 @@ return function(itemList, options) {
       headerClass: *string class name* (the class applied to the header cells)
       columnClass: *string class name* (the class applied to the column containers)
       cellClass: *string class name* (the class applied to every value cell)
+      scrollBarContainerClass: *string class name* (the class applied to the scroll bar background)
+      scrollBarHeadClass: *string class name* (the class applied to the scroll bar head)
       propertyMode: all/mutual/explicit : default=mutual
       properties: [array of property names] (necessary if propertyMode is explicit)
       headerMap: object<string, string> mapping header titles to object properties
@@ -34,7 +36,6 @@ return function(itemList, options) {
       return true;
     }
   });
-  
   if (foundNonObjectItem) {
     throw Utils.generateError(`itemList must be an Array of Objects, but a ` +
       `${typeof nonObjectitem} value was found.`);
@@ -47,12 +48,12 @@ return function(itemList, options) {
 
   switch (propertyMode) {
     case 'all':
-      options.columnHeaders = Utils.findAllProperties(itemList);
-      options.properties = options.columnHeaders;
+      options.properties = Utils.findAllProperties(itemList);
+      options.columnHeaders = options.properties;
       break;
     case 'mutual':
-      options.columnHeaders = Utils.findMutualProperties(itemList);
-      options.properties = options.columnHeaders;
+      options.properties = Utils.findMutualProperties(itemList);
+      options.columnHeaders = options.properties;
       break;
     case 'explicit':
       // if propertyMode is explicit, make sure it is an array and only contains strings
@@ -78,8 +79,8 @@ return function(itemList, options) {
       // assert that all the property array values are strings
       options.properties.forEach((propertyName) => {
         if (!Utils.isString(propertyName)) {
-          throw Utils.generateError(`Not all property names that were passed in ` +
-            `property array are strings.`);
+          throw Utils.generateError(`Not all property names that were included in` +
+            ` the property array are strings.`);
         }
       });
 
@@ -164,30 +165,22 @@ return function(itemList, options) {
     }
   }
 
+  const validatePropertyAsString = (propertyName) => { 
+    if (options[propertyName]) {
+      if (!Utils.isString(options[propertyName])) {
+        throw Utils.generateError(`The ${propertyName} value provided was not a string ` +
+          `value: ${options[propertyName]} (${typeof options[propertyName]})`);
+      }
+    }
+  };
+
   // validate classes as strings
-  if (options.containerClass) {
-    if (!Utils.isString(options.containerClass)) {
-      throw Utils.generateError(`The container class provided was not a string value: ${options.containerClass}`);
-    }
-  }
-
-  if (options.headerClass) {
-    if (!Utils.isString(options.headerClass)) {
-      throw Utils.generateError(`The header class provided was not a string value: ${options.headerClass}`);
-    }
-  }
-
-  if (options.columnClass) {
-    if (!Utils.isString(options.columnClass)) {
-      throw Utils.generateError(`The row class provided was not a string value: ${options.columnClass}`);
-    }
-  }
-  
-  if (options.cellClass) {
-    if (!Utils.isString(options.cellClass)) {
-      throw Utils.generateError(`The cell class provided was not a string value: ${options.cellClass}`);
-    }
-  }
+  validatePropertyAsString('containerClass');
+  validatePropertyAsString('headerClass');
+  validatePropertyAsString('columnClass');
+  validatePropertyAsString('cellClass');
+  validatePropertyAsString('scrollBarContainerClass');
+  validatePropertyAsString('scrollBarHeadClass');
 
   return new BigTable(itemList, options);  
 }

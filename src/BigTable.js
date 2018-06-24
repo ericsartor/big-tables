@@ -35,9 +35,9 @@ function BigTable(itemList, options) {
     const columnDiv = document.createElement('div');
     columnDiv.className = `big-table-column ${this._props.columnClass || ''}`;
     
-    const gridTemplateArr = '1fr,'.repeat(this._props.rowCount).split(',');
-    gridTemplateArr.pop(); // last element in array will be empty
-    columnDiv.style.gridTemplate = `${gridTemplateArr.join(' ')} / 1fr`;
+    // const gridTemplateArr = '1fr,'.repeat(this._props.rowCount).split(',');
+    // gridTemplateArr.pop(); // last element in array will be empty
+    // columnDiv.style.gridTemplate = `${gridTemplateArr.join(' ')} / 1fr`;
 
     return columnDiv;
   }
@@ -177,11 +177,11 @@ function BigTable(itemList, options) {
 
   const createScrollBar = () => {
     const scrollBarContainer = document.createElement('div');
-    scrollBarContainer.className = 'big-table-scroll-bar-container';
+    scrollBarContainer.className = `big-table-scroll-bar-container ${this._props.scrollBarContainerClass || ''}`;
     this._props.scrollBarContainer = scrollBarContainer;
 
     const scrollBarHead = document.createElement('div');
-    scrollBarHead.className = 'big-table-scroll-bar-head';
+    scrollBarHead.className = `big-table-scroll-bar-head ${this._props.scrollBarHeadClass || ''}`;
     scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
     this._props.scrollBarHead = scrollBarHead;
 
@@ -419,7 +419,9 @@ function BigTable(itemList, options) {
           const termsToLoopThrough = options.whitelistMatchAll ? remainingMatchesCopy : options.whitelistTerms;
 
           termsToLoopThrough.some((term) => {
-            // case insenstive match
+            // properties may be undefined it property mode is set to all
+            if (obj[objProp] === undefined) return false;
+
             const matchTerm = obj[objProp].toString().match(new RegExp(term, 'i')) !== null;
 
             if (matchTerm && !options.whitelistMatchAll) {
@@ -505,6 +507,8 @@ function BigTable(itemList, options) {
   this._props.columnClass = options.columnClass || null;
   this._props.headerClass = options.headerClass || null;
   this._props.cellClass = options.cellClass || null;
+  this._props.scrollBarContainerClass = options.scrollBarContainerClass || null;
+  this._props.scrollBarHeadClass = options.scrollBarHeadClass || null;
   this.columnHeaders = options.columnHeaders;
 
   this._props.propertyMap = (() => {

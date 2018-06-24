@@ -4,21 +4,23 @@ const BigTable = (function() {const style = document.createElement('style');
     position:relative;
     grid-column:-2;
     grid-row:1;
-    background:blue;
   }
   .big-table-scroll-bar-head {
     position:relative;
-    background-color:black;
     width:80%;
     margin-left:10%;
   }
 
   .big-table-header {
     user-select:none;
+    overflow:hidden;
+    white-space:nowrap;
   }
 
   .big-table-value-cell {
     user-select:none;
+    overflow:hidden;
+    white-space:nowrap;
   }
   .big-table-value-cell.enable-select {
     user-select:initial;
@@ -114,9 +116,9 @@ function BigTable(itemList, options) {
     const columnDiv = document.createElement('div');
     columnDiv.className = `big-table-column ${this._props.columnClass || ''}`;
     
-    const gridTemplateArr = '1fr,'.repeat(this._props.rowCount).split(',');
-    gridTemplateArr.pop(); // last element in array will be empty
-    columnDiv.style.gridTemplate = `${gridTemplateArr.join(' ')} / 1fr`;
+    // const gridTemplateArr = '1fr,'.repeat(this._props.rowCount).split(',');
+    // gridTemplateArr.pop(); // last element in array will be empty
+    // columnDiv.style.gridTemplate = `${gridTemplateArr.join(' ')} / 1fr`;
 
     return columnDiv;
   }
@@ -256,11 +258,11 @@ function BigTable(itemList, options) {
 
   const createScrollBar = () => {
     const scrollBarContainer = document.createElement('div');
-    scrollBarContainer.className = 'big-table-scroll-bar-container';
+    scrollBarContainer.className = `big-table-scroll-bar-container ${this._props.scrollBarContainerClass || ''}`;
     this._props.scrollBarContainer = scrollBarContainer;
 
     const scrollBarHead = document.createElement('div');
-    scrollBarHead.className = 'big-table-scroll-bar-head';
+    scrollBarHead.className = `big-table-scroll-bar-head ${this._props.scrollBarHeadClass || ''}`;
     scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
     this._props.scrollBarHead = scrollBarHead;
 
@@ -498,7 +500,9 @@ function BigTable(itemList, options) {
           const termsToLoopThrough = options.whitelistMatchAll ? remainingMatchesCopy : options.whitelistTerms;
 
           termsToLoopThrough.some((term) => {
-            // case insenstive match
+            // properties may be undefined it property mode is set to all
+            if (obj[objProp] === undefined) return false;
+
             const matchTerm = obj[objProp].toString().match(new RegExp(term, 'i')) !== null;
 
             if (matchTerm && !options.whitelistMatchAll) {
@@ -584,6 +588,8 @@ function BigTable(itemList, options) {
   this._props.columnClass = options.columnClass || null;
   this._props.headerClass = options.headerClass || null;
   this._props.cellClass = options.cellClass || null;
+  this._props.scrollBarContainerClass = options.scrollBarContainerClass || null;
+  this._props.scrollBarHeadClass = options.scrollBarHeadClass || null;
   this.columnHeaders = options.columnHeaders;
 
   this._props.propertyMap = (() => {
@@ -636,6 +642,8 @@ return function(itemList, options) {
       headerClass: *string class name* (the class applied to the header cells)
       columnClass: *string class name* (the class applied to the column containers)
       cellClass: *string class name* (the class applied to every value cell)
+      scrollBarContainerClass: *string class name* (the class applied to the scroll bar background)
+      scrollBarHeadClass: *string class name* (the class applied to the scroll bar head)
       propertyMode: all/mutual/explicit : default=mutual
       properties: [array of property names] (necessary if propertyMode is explicit)
       headerMap: object<string, string> mapping header titles to object properties
@@ -658,7 +666,6 @@ return function(itemList, options) {
       return true;
     }
   });
-  
   if (foundNonObjectItem) {
     throw Utils.generateError(`itemList must be an Array of Objects, but a ` +
       `${typeof nonObjectitem} value was found.`);
@@ -671,12 +678,12 @@ return function(itemList, options) {
 
   switch (propertyMode) {
     case 'all':
-      options.columnHeaders = Utils.findAllProperties(itemList);
-      options.properties = options.columnHeaders;
+      options.properties = Utils.findAllProperties(itemList);
+      options.columnHeaders = options.properties;
       break;
     case 'mutual':
-      options.columnHeaders = Utils.findMutualProperties(itemList);
-      options.properties = options.columnHeaders;
+      options.properties = Utils.findMutualProperties(itemList);
+      options.columnHeaders = options.properties;
       break;
     case 'explicit':
       // if propertyMode is explicit, make sure it is an array and only contains strings
@@ -702,8 +709,8 @@ return function(itemList, options) {
       // assert that all the property array values are strings
       options.properties.forEach((propertyName) => {
         if (!Utils.isString(propertyName)) {
-          throw Utils.generateError(`Not all property names that were passed in ` +
-            `property array are strings.`);
+          throw Utils.generateError(`Not all property names that were included in` +
+            ` the property array are strings.`);
         }
       });
 
@@ -788,30 +795,22 @@ return function(itemList, options) {
     }
   }
 
+  const validatePropertyAsString = (propertyName) => { 
+    if (options[propertyName]) {
+      if (!Utils.isString(options[propertyName])) {
+        throw Utils.generateError(`The ${propertyName} value provided was not a string ` +
+          `value: ${options[propertyName]} (${typeof options[propertyName]})`);
+      }
+    }
+  };
+
   // validate classes as strings
-  if (options.containerClass) {
-    if (!Utils.isString(options.containerClass)) {
-      throw Utils.generateError(`The container class provided was not a string value: ${options.containerClass}`);
-    }
-  }
-
-  if (options.headerClass) {
-    if (!Utils.isString(options.headerClass)) {
-      throw Utils.generateError(`The header class provided was not a string value: ${options.headerClass}`);
-    }
-  }
-
-  if (options.columnClass) {
-    if (!Utils.isString(options.columnClass)) {
-      throw Utils.generateError(`The row class provided was not a string value: ${options.columnClass}`);
-    }
-  }
-  
-  if (options.cellClass) {
-    if (!Utils.isString(options.cellClass)) {
-      throw Utils.generateError(`The cell class provided was not a string value: ${options.cellClass}`);
-    }
-  }
+  validatePropertyAsString('containerClass');
+  validatePropertyAsString('headerClass');
+  validatePropertyAsString('columnClass');
+  validatePropertyAsString('cellClass');
+  validatePropertyAsString('scrollBarContainerClass');
+  validatePropertyAsString('scrollBarHeadClass');
 
   return new BigTable(itemList, options);  
 }})();
