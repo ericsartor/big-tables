@@ -96,7 +96,7 @@ function BigTable(itemList, options) {
 
       // create all the value cells for this column, getting the property name from either
       // the propertyMap if a headerMap was provided, or the headerTitle if not
-      const propertyName = this._props.propertyMap ? this._props.propertyMap[headerTitle] : headerTitle;
+      const propertyName = this.propertyMap ? this.propertyMap[headerTitle] : headerTitle;
       for (let i = this.offset; i < this._props.rowCount + this.offset; i++) {
         const currentObj = objectListToUse[i];
 
@@ -230,7 +230,7 @@ function BigTable(itemList, options) {
     this._props.scrollBarHead.style.top = newTop + '%';
   }
 
-  // updates the table offset then re-draws table
+  // updates the table offset then re-draws table, firing the the btscroll event
   const performScroll = (steps) => {
     const desiredOffset = this.offset + steps;
     const notTooHigh = desiredOffset <= determineMaxOffset();
@@ -244,6 +244,16 @@ function BigTable(itemList, options) {
     if (this._props.options.scrollBar) updateScrollHead();
 
     draw();
+
+    
+    this.node.dispatchEvent(new CustomEvent('btscroll', {
+      detail: {
+        tableOffset: this.offset,
+        rowCount: this._props.rowCount,
+        steps: steps,
+        visibleObjects: getCurrentObjectList().slice(this.offset, this.offset + this._props.rowCount)
+      }
+    }));
   }
 
   /**********************************
@@ -315,9 +325,10 @@ function BigTable(itemList, options) {
     options:
         whitelistTerms: Array - at least one of these strings must be found in a row for a match
         blacklistTerms: Array - if any of these strings are found in a row, they are not a match
-        whitelistColumns: Array - only search in columns with these headers
-        blacklistColumns: Array - do not search in columns with these headers
+        whitelistProperties: Array - only search in these properties
+        blacklistProperties: Array - do not search in these properties
         whitelistMatchAll: Boolean - if this is true, ALL of the whitelist terms must be found for a row to be a match
+        caseSensitive: Boolean - if true, matches must be case sensitive
     */
 
     // check the properties to make sure they are either strings or arrays of strings
@@ -351,7 +362,7 @@ function BigTable(itemList, options) {
     const validateColumns = (propertyName) => {
       const columnNames = options[propertyName];
       const invalidColumnName = columnNames.find((name) => {
-        return !this.columnHeaders.includes(name);
+        return !this._props.properties.includes(name);
       });
 
       if (invalidColumnName) {
@@ -370,31 +381,32 @@ function BigTable(itemList, options) {
       validateStringOrArray('blacklistTerms');
     }
 
-    if (options.whitelistColumns) {
-      validateStringOrArray('whitelistColumns');
-      validateColumns('whitelistColumns');
+    if (options.whitelistProperties) {
+      validateStringOrArray('whitelistProperties');
+      validateColumns('whitelistProperties');
     }
 
-    if (options.blacklistColumns) {
-      validateStringOrArray('blacklistColumns');
-      validateColumns('blacklistColumns');
+    if (options.blacklistProperties) {
+      validateStringOrArray('blacklistProperties');
+      validateColumns('blacklistProperties');
     }
 
     // ready to start filtering, initialize filtered list
     this._props.filteredList = [];
 
-    // create the list of properties to check for matches in
+    // create the list of properties to check for matches in based on what the
+    // user provided in the whitelist/blaclist property arrays
     const propertiesToCheck = (() => {
-      if (options.whitelistColumns || options.blacklistColumns) {
-        if (options.whitelistColumns && !options.blacklistColumns) {
-          return options.whitelistColumns;
-        } else if (options.blacklistColumns && !options.whitelistColumns) {
+      if (options.whitelistProperties || options.blacklistProperties) {
+        if (options.whitelistProperties && !options.blacklistProperties) {
+          return options.whitelistProperties;
+        } else if (options.blacklistProperties && !options.whitelistProperties) {
           return this._props.properties.filter((prop => {
-            return !options.blacklistColumns.includes(prop);
+            return !options.blacklistProperties.includes(prop);
           }));
         } else {
-          return options.whitelistColumns.filter((prop => {
-            return !options.blacklistColumns.includes(prop);
+          return options.whitelistProperties.filter((prop => {
+            return !options.blacklistProperties.includes(prop);
           }));
         }
       } else {
@@ -402,7 +414,15 @@ function BigTable(itemList, options) {
       }
     })()
 
+    // utility function for checking for a match against both whitelist and blacklist terms
+    const checkForMatch = (stringToSearch, term) => {
+      return options.caseSensitive ?
+        stringToSearch.indexOf(term) !== -1 :
+        stringToSearch.toLowerCase().indexOf(term.toLowerCase()) !== -1;
+    }
+
     // populate filtered lists with objects matching the whiteliset conditions
+    let termsMatched = [];
     if (options.whitelistTerms) {
       this.objects.forEach((obj) => {
         // don't bother initializing this variable if it isn't needed
@@ -422,16 +442,22 @@ function BigTable(itemList, options) {
             // properties may be undefined it property mode is set to all
             if (obj[objProp] === undefined) return false;
 
-            const matchTerm = obj[objProp].toString().match(new RegExp(term, 'i')) !== null;
+            const termMatched = checkForMatch(obj[objProp].toString(), term);
 
-            if (matchTerm && !options.whitelistMatchAll) {
+            if (termMatched && !options.whitelistMatchAll) {
+              // track that this term had a match
+              Utils.addIfNotPresent(term, termsMatched);
+
               // if whitelistMatchAll flag is off, this object is a match
               this._props.filteredList.push(obj);
               foundMatch = true;
               return true;
-            } else if (matchTerm && options.whitelistMatchAll) {
+            } else if (termMatched && options.whitelistMatchAll) {
               // if whitelistMatchAll flag is on, remove this term from the terms left to match
               termsThisObjectHasntMatched.splice(termsThisObjectHasntMatched.indexOf(term), 1);
+              
+              // track that this term had a match
+              Utils.addIfNotPresent(term, termsMatched);
 
               // no terms left to match, this object is a match
               if (termsThisObjectHasntMatched.length === 0) {
@@ -458,12 +484,14 @@ function BigTable(itemList, options) {
           // flag for if a match was found in this property
           let foundMatch = false;
 
+          // properties may be undefined it property mode is set to all
+          if (obj[objProp] === undefined) return false;
+
           // try each blacklist term on the property value
           options.blacklistTerms.some((term) => {
-            // case insenstive match
-            const matchTerm = obj[objProp].toString().match(new RegExp(term, 'i')) !== null;
+            const termMatched = checkForMatch(obj[objProp].toString(), term);
 
-            if (matchTerm) {
+            if (termMatched) {
               this._props.filteredList.splice(i, 1);
               foundMatch = true;
               return true;
@@ -485,6 +513,20 @@ function BigTable(itemList, options) {
       updateScrollHead();
     }
     draw();
+
+    this.node.dispatchEvent(new CustomEvent('btsearch', {
+      detail: {
+        results: this._props.filteredList,
+        termsMatched: termsMatched,
+        termsNotMatched: options.whitelistTerms.filter((term) => {
+          return !termsMatched.includes(term);
+        }),
+        propertiesChecked: propertiesToCheck,
+        columnsChecked: propertiesToCheck.map((propertyName) => {
+          return this.headerMap[propertyName];
+        })
+      }
+    }));
   }
 
   this.clearSearch = () => {
@@ -495,6 +537,8 @@ function BigTable(itemList, options) {
       updateScrollHead();
     }
     draw();
+
+    this.node.dispatchEvent(new CustomEvent('btclearsearch'));
   }
 
   /* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR */
@@ -511,7 +555,8 @@ function BigTable(itemList, options) {
   this._props.scrollBarHeadClass = options.scrollBarHeadClass || null;
   this.columnHeaders = options.columnHeaders;
 
-  this._props.propertyMap = (() => {
+  this.headerMap = options.headerMap;
+  this.propertyMap = (() => {
     if (options.headerMap === undefined) {
       return undefined;
     }

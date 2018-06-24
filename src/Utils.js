@@ -7,9 +7,18 @@ const Utils = {
     return typeof value === 'string' || value instanceof String;
   },
 
-  isObject (value) {
+  isObject(value) {
     return value !== null && typeof value === 'object' &&
       !(value instanceof String) && !(value instanceof Number)
+  },
+
+  addIfNotPresent(value, array) {
+    if (!array.includes(value)) {
+      array.push(value);
+      return true;
+    } else {
+      return false;
+    }
   },
 
   // loop through an array of objects and find the properties common between them
