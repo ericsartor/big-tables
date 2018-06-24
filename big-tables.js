@@ -157,22 +157,30 @@ function BigTable(itemList, options) {
     return valueCellDiv;
   }
 
+  const getCurrentObjectList = () => {
+    return this._props.filteredList || this.objects;
+  }
+
   const draw = () => {
+    const objectListToUse = getCurrentObjectList();
+
     // create document fragments for the value cells for each column div
     // simultaneously create the header divs for each column
     const columnFragments = {};
     for (const headerTitle of this.columnHeaders) {
-
-
       columnFragments[headerTitle] = document.createDocumentFragment();
 
       const headerDiv = createHeader(headerTitle);
       columnFragments[headerTitle].appendChild(headerDiv);
 
-      // create all the value cells for this column
+      // create all the value cells for this column, getting the property name from either
+      // the propertyMap if a headerMap was provided, or the headerTitle if not
       const propertyName = this._props.propertyMap ? this._props.propertyMap[headerTitle] : headerTitle;
       for (let i = this.offset; i < this._props.rowCount + this.offset; i++) {
-        const currentObj = this.objects[i];
+        const currentObj = objectListToUse[i];
+
+        if (currentObj === undefined) break;
+
         const cellValue = currentObj[propertyName] !== undefined ? currentObj[propertyName] : '[no value]';
         
         const valueCellDiv = createValueCell(cellValue, i, propertyName);
@@ -220,7 +228,7 @@ function BigTable(itemList, options) {
 
   // returns the maximum the table offset can be without showing blank space
   const determineMaxOffset = () => {
-    return this.objects.length - this._props.rowCount;
+    return getCurrentObjectList().length - this._props.rowCount;
   }
 
   const determineMaxScrollBarTop = () => {
@@ -230,9 +238,9 @@ function BigTable(itemList, options) {
   const determineScrollBarScalingAmount = () => {
     let amount = 100;
 
-    if (this.objects.length <= this._props.rowCount) return amount;
+    if (getCurrentObjectList().length <= this._props.rowCount) return amount;
 
-    const excessRows = this.objects.length - this._props.rowCount;
+    const excessRows = getCurrentObjectList().length - this._props.rowCount;
 
     let subtractAmount = 1;
     for (let i = 0; i < excessRows; i++) {
@@ -278,7 +286,7 @@ function BigTable(itemList, options) {
         performScroll(determineMaxOffset() - this.offset);
       } else {
         const totalPixelsOfMovement = determineMaxScrollBarTop() / 100 * containerRect.height;
-        const rowsPerPixel = this.objects.length / totalPixelsOfMovement;
+        const rowsPerPixel = getCurrentObjectList().length / totalPixelsOfMovement;
         const moveAmountPixels = e.clientY - that._props.scrollBarGrabPreviousY;
         const totalRowsMoved = rowsPerPixel * moveAmountPixels;
   
@@ -312,8 +320,8 @@ function BigTable(itemList, options) {
       return;
     }
 
-    if (this._props.scrollBar) updateScrollHead();
-    
+    if (this._props.options.scrollBar) updateScrollHead();
+
     draw();
   }
 
@@ -384,20 +392,193 @@ function BigTable(itemList, options) {
   this.search = (options) => {
     /*
     options:
-        whitelistTerms - at least one of these strings must be found in a row for a match
-        blacklistTerms - if any of these strings are found in a row, they are not a match
-        whitelistColumns - only search in columns with these headers
-        blacklistColumns - search in all columns other than those with these headers
-
-        including both whitelistColumns and blacklistColumns will throw an error
-        including both whitelistTerms and blacklistTerms is fine
+        whitelistTerms: Array - at least one of these strings must be found in a row for a match
+        blacklistTerms: Array - if any of these strings are found in a row, they are not a match
+        whitelistColumns: Array - only search in columns with these headers
+        blacklistColumns: Array - do not search in columns with these headers
+        whitelistMatchAll: Boolean - if this is true, ALL of the whitelist terms must be found for a row to be a match
     */
+
+    // check the properties to make sure they are either strings or arrays of strings
+    // if string, create single item array from it
+    // otherwise, throw error
+    const validateStringOrArray = (propertyName) => {
+      const value = options[propertyName];
+
+      if (Utils.isString(value)) {
+        // if the whitelistTerms value is a string, convert it to a single item array
+        options[propertyName] = [value];
+      } else if (!Array.isArray(value)) {
+        // if the whitelistTerms value isn't a string or Array, throw an error
+        throw Utils.generateError(`Search: The value supplied for ${propertyName}` +
+          ` was neither a string or an Array: ${value}` +
+          ` (${typeof value})`);
+      } else {
+        // value is an array, make sure it only contains strings
+        const foundNonStringValue = value.find((item) => {
+          return !Utils.isString(item);
+        });
+
+        if (foundNonStringValue) {
+          throw Utils.generateError(`Search: The value supplied for ${propertyName}` +
+            ` was an Array, but it contained a non-string item:` +
+            ` ${foundNonStringValue} (${typeof foundNonStringValue})`);
+        }
+      }
+    }
+
+    const validateColumns = (propertyName) => {
+      const columnNames = options[propertyName];
+      const invalidColumnName = columnNames.find((name) => {
+        return !this.columnHeaders.includes(name);
+      });
+
+      if (invalidColumnName) {
+        throw Utils.generateError(`A ${propertyName} value was supplied, but` +
+        ` it contains an invalid column name: ${invalidColumnName}`);
+      }
+    }
+
+    // do the validation for whatever was passed into options
+
+    if (options.whitelistTerms) {
+      validateStringOrArray('whitelistTerms');
+    }
+
+    if (options.blacklistTerms) {
+      validateStringOrArray('blacklistTerms');
+    }
+
+    if (options.whitelistColumns) {
+      validateStringOrArray('whitelistColumns');
+      validateColumns('whitelistColumns');
+    }
+
+    if (options.blacklistColumns) {
+      validateStringOrArray('blacklistColumns');
+      validateColumns('blacklistColumns');
+    }
+
+    // ready to start filtering, initialize filtered list
+    this._props.filteredList = [];
+
+    // create the list of properties to check for matches in
+    const propertiesToCheck = (() => {
+      if (options.whitelistColumns || options.blacklistColumns) {
+        if (options.whitelistColumns && !options.blacklistColumns) {
+          return options.whitelistColumns;
+        } else if (options.blacklistColumns && !options.whitelistColumns) {
+          return this._props.properties.filter((prop => {
+            return !options.blacklistColumns.includes(prop);
+          }));
+        } else {
+          return options.whitelistColumns.filter((prop => {
+            return !options.blacklistColumns.includes(prop);
+          }));
+        }
+      } else {
+        return this._props.properties;
+      }
+    })()
+
+    // populate filtered lists with objects matching the whiteliset conditions
+    if (options.whitelistTerms) {
+      this.objects.forEach((obj) => {
+        // don't bother initializing this variable if it isn't needed
+        // this will keep track of the remaining unmatched terms for whitelistMatchAll matches
+        let termsThisObjectHasntMatched = options.whitelistMatchAll ? [].concat(options.whitelistTerms) : null;
+
+        propertiesToCheck.some((objProp) => {
+          // flag for if it's been determined that this object is a match
+          let foundMatch = false;
+
+          const remainingMatchesCopy = [].concat(termsThisObjectHasntMatched);
+
+          // try each whitelist term on the current property value
+          const termsToLoopThrough = options.whitelistMatchAll ? remainingMatchesCopy : options.whitelistTerms;
+
+          termsToLoopThrough.some((term) => {
+            // case insenstive match
+            const matchTerm = obj[objProp].toString().match(new RegExp(term, 'i')) !== null;
+
+            if (matchTerm && !options.whitelistMatchAll) {
+              // if whitelistMatchAll flag is off, this object is a match
+              this._props.filteredList.push(obj);
+              foundMatch = true;
+              return true;
+            } else if (matchTerm && options.whitelistMatchAll) {
+              // if whitelistMatchAll flag is on, remove this term from the terms left to match
+              termsThisObjectHasntMatched.splice(termsThisObjectHasntMatched.indexOf(term), 1);
+
+              // no terms left to match, this object is a match
+              if (termsThisObjectHasntMatched.length === 0) {
+                this._props.filteredList.push(obj);
+                foundMatch = true;
+                return true;
+              }
+            }
+          });
+
+          // cut the some loop short and move on to next object
+          return foundMatch;
+        });
+      });
+    }
+
+    // remove objects from the filtered list that have a blacklist match
+    if (options.blacklistTerms) {
+      const filteredListReverseCopy = [].concat(this._props.filteredList).reverse();
+      let i = filteredListReverseCopy.length - 1; // track which index of the pbjets array we are on
+
+      filteredListReverseCopy.forEach((obj) => {
+        this._props.properties.some((objProp) => {
+          // flag for if a match was found in this property
+          let foundMatch = false;
+
+          // try each blacklist term on the property value
+          options.blacklistTerms.some((term) => {
+            // case insenstive match
+            const matchTerm = obj[objProp].toString().match(new RegExp(term, 'i')) !== null;
+
+            if (matchTerm) {
+              this._props.filteredList.splice(i, 1);
+              foundMatch = true;
+              return true;
+            }
+          });
+
+          // cut the some loop short and move on to next object
+          return foundMatch;
+        });
+
+        i--;
+      });
+    }
+
+    // filtering is complete, draw the update and update the scrollbar
+    this.offset = 0;
+    if (this._props.options.scrollBar) {
+      this._props.scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
+      updateScrollHead();
+    }
+    draw();
+  }
+
+  this.clearSearch = () => {
+    this._props.filteredList = null;
+    this.offset = 0;
+    if (this._props.options.scrollBar) {
+      this._props.scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
+      updateScrollHead();
+    }
+    draw();
   }
 
   /* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR */
 
   this._props = {}; // holds all the private properties that the user won't need to see
   this._props.options = options;
+  this._props.properties = options.properties;
   this.objects = itemList; // this is only a reference, so when the external itemList gets updated, the internal itemList does as well
   this._props.containerClass = options.containerClass || null;
   this._props.columnClass = options.columnClass || null;
@@ -437,7 +618,7 @@ function BigTable(itemList, options) {
   this._props.rowCount = 20;
 
   // create scroll bar if required
-  if (options.scrollBar) {
+  if (this._props.options.scrollBar) {
     createScrollBar();
   }
 }
@@ -450,9 +631,11 @@ return function(itemList, options) {
     options
 
       orientation: column/row : default=row
-      containerClass: *string class name*
-      cellClass: *string class name*
-      rowClass: *string class name*
+      scrollBar: Boolean (scrolling enabled either way, this just toggles a visible scroll bar)
+      containerClass: *string class name* (the class applied to the table container)
+      headerClass: *string class name* (the class applied to the header cells)
+      columnClass: *string class name* (the class applied to the column containers)
+      cellClass: *string class name* (the class applied to every value cell)
       propertyMode: all/mutual/explicit : default=mutual
       properties: [array of property names] (necessary if propertyMode is explicit)
       headerMap: object<string, string> mapping header titles to object properties
@@ -489,9 +672,11 @@ return function(itemList, options) {
   switch (propertyMode) {
     case 'all':
       options.columnHeaders = Utils.findAllProperties(itemList);
+      options.properties = options.columnHeaders;
       break;
     case 'mutual':
       options.columnHeaders = Utils.findMutualProperties(itemList);
+      options.properties = options.columnHeaders;
       break;
     case 'explicit':
       // if propertyMode is explicit, make sure it is an array and only contains strings
@@ -610,15 +795,15 @@ return function(itemList, options) {
     }
   }
 
-  if (options.columnClass) {
-    if (!Utils.isString(options.columnClass)) {
-      throw Utils.generateError(`The row class provided was not a string value: ${options.columnClass}`);
-    }
-  }
-
   if (options.headerClass) {
     if (!Utils.isString(options.headerClass)) {
       throw Utils.generateError(`The header class provided was not a string value: ${options.headerClass}`);
+    }
+  }
+
+  if (options.columnClass) {
+    if (!Utils.isString(options.columnClass)) {
+      throw Utils.generateError(`The row class provided was not a string value: ${options.columnClass}`);
     }
   }
   

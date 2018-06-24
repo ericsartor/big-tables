@@ -7,6 +7,7 @@ return function(itemList, options) {
     options
 
       orientation: column/row : default=row
+      scrollBar: Boolean (scrolling enabled either way, this just toggles a visible scroll bar)
       containerClass: *string class name* (the class applied to the table container)
       headerClass: *string class name* (the class applied to the header cells)
       columnClass: *string class name* (the class applied to the column containers)
@@ -47,9 +48,11 @@ return function(itemList, options) {
   switch (propertyMode) {
     case 'all':
       options.columnHeaders = Utils.findAllProperties(itemList);
+      options.properties = options.columnHeaders;
       break;
     case 'mutual':
       options.columnHeaders = Utils.findMutualProperties(itemList);
+      options.properties = options.columnHeaders;
       break;
     case 'explicit':
       // if propertyMode is explicit, make sure it is an array and only contains strings
