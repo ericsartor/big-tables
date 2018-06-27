@@ -1,6 +1,6 @@
 const style = document.createElement('style');
   style.innerHTML = `
-  .big-table-scroll-bar-container {
+  .big-table-scroll-bar-track {
     position:relative;
     grid-column:-2;
     grid-row:1;
