@@ -573,9 +573,19 @@ function BigTable(itemList, options) {
 
   // set column width value
   if (options.columnWidths) {
-    this._props.gridTemplate = options.columnWidths;
+    // loop through the provided column widths map and push their values to an array
+    // in the order the properties were provided in, filling in 1fr for any missing values
+    this._props.gridTemplate = [];
+    this._props.properties.forEach((propertyName) => {
+      // if the value is in the columnWidths map under the propery name or column header,
+      // it will be stored here
+      const value = options.columnWidths[propertyName] || options.columnWidths[this.headerMap[propertyName]] || false;
+      
+      // push 1fr if a value wasn't provided for the current property name
+      this._props.gridTemplate.push(value || '1fr');
+    });
   } else {
-    // column widths default to 1fr
+    // column widths default to equal percentage values
     this._props.gridTemplate = `${100 / this.columnHeaders.length}%,`.repeat(this.columnHeaders.length).split(',');
     this._props.gridTemplate.pop(); // last element in array will be empty
   }

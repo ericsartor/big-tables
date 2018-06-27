@@ -110,51 +110,38 @@ return function(itemList, options) {
     });
   }
 
-  // make sure column widths are either numbers or fr values
+  // validate that the column width map contains valid column or property names
+  // and valid unit values
   if (options.columnWidths) {
-    // assert that the value is an array
-    if (!Array.isArray(options.columnWidths)) {
-      throw Utils.generateError(`columnWidths value provided is not an Array. A` +
+    // assert that the value is an object
+    if (!Utils.isObject(options.columnWidths)) {
+      throw Utils.generateError(`columnWidths value provided is not an Object. A` +
         ` ${typeof options.columnWidths} was provided: ${options.columnWidths}`);
     }
 
-    // assert that there are an equal number of columnWidths as properties
-    if (options.columnWidths.length !== options.columnHeaders.length) {
-      const more = options.columnWidths.length > options.columnHeaders.length;
-      throw Utils.generateError(`${more ? 'More' : 'Less'} columnWidths values` +
-        ` were provided than there are columns.  ${options.columnHeaders.length}` +
-        ` properties were provided/detected, but ${options.columnWidths.length}` +
-        ` columnWidths were provided.`);
-    }
-
-    // assert that values are all strings or numbers
-    const invalidValueFound = options.columnWidths.findIndex((widthValue) => {
-      return !Utils.isString(widthValue) && typeof widthValue !== 'number';
-    }) > -1;
-    if (invalidValueFound) {
-      throw Utils.generateError(`columnWidths array contains a value that is neither` +
-        ` a string or a number`);
-    }
-
-    // assert that all string values match the '#fr' '#.#fr' template
-    options.columnWidths.forEach((widthValue) => {
-      if (Utils.isString(widthValue)) {
-        if (widthValue.match(/[0-9]+fr|[0-9]+\.[0-9]+fr/i) === null) {
-          throw Utils.generateError(`One of the columnWidths values is an invalid` +
-            `string format: ${widthValue}.  All string values should match the` +
-            `'#fr' or '#.#fr' template.`);
-        }
+    // assert that all object keys are either valid itemList properties or
+    // valid column headers and that all values are strings and valid CSS values
+    for (const key in options.columnWidths) {
+      // assert that the key is valid
+      if (!options.columnHeaders.includes(key) && !options.properties.includes(key)) {
+        throw Utils.generateError(`An invalid columnWidths key was provided that` +
+          ` did not match any column headers or item property keys: ${key}`);
       }
-    });
 
-    // format all values to '#fr'
-    options.columnWidths = options.columnWidths.map((widthValue) => {
-      if (!Utils.isString(widthValue)) {
-        return `${widthValue}fr`;
-      } else {
-        return widthValue;
+      const value = options.columnWidths[key];
+
+      // assert that the value is a string
+      if (!Utils.isString(value)) {
+        throw Utils.generateError(`One of the columnWidths values provided was` +
+          ` not a string: ${value} (${typeof value})`);
       }
-    });
+
+      // assert that value is a valid CSS unit value
+      if (!Utils.validateCssUnitValue(value)) {
+        throw Utils.generateError(`One of the columnWidths values provided was` +
+          ` not a valid CSS unit value: ${value}`);
+      }
+    }
   }
 
   // validate orientation
