@@ -333,7 +333,7 @@ function BigTable(itemList, options) {
     // check the properties to make sure they are either strings or arrays of strings
     // if string, create single item array from it
     // otherwise, throw error
-    const validateStringOrArray = (propertyName) => {
+    const validateStringOrArrayOfStrings = (propertyName) => {
       const value = options[propertyName];
 
       if (Utils.isString(value)) {
@@ -373,20 +373,20 @@ function BigTable(itemList, options) {
     // do the validation for whatever was passed into options
 
     if (options.whitelistTerms) {
-      validateStringOrArray('whitelistTerms');
+      validateStringOrArrayOfStrings('whitelistTerms');
     }
 
     if (options.blacklistTerms) {
-      validateStringOrArray('blacklistTerms');
+      validateStringOrArrayOfStrings('blacklistTerms');
     }
 
     if (options.whitelistProperties) {
-      validateStringOrArray('whitelistProperties');
+      validateStringOrArrayOfStrings('whitelistProperties');
       validateColumns('whitelistProperties');
     }
 
     if (options.blacklistProperties) {
-      validateStringOrArray('blacklistProperties');
+      validateStringOrArrayOfStrings('blacklistProperties');
       validateColumns('blacklistProperties');
     }
 
@@ -420,9 +420,12 @@ function BigTable(itemList, options) {
         stringToSearch.toLowerCase().indexOf(term.toLowerCase()) !== -1;
     }
 
-    // populate filtered lists with objects matching the whiteliset conditions
+    // populate filtered lists with objects matching the whitelist conditions
     let termsMatched = [];
     if (options.whitelistTerms) {
+      // remove empty values
+      options.whitelistTerms = options.whitelistTerms.filter((term) => term.trim());
+
       this.objects.forEach((obj) => {
         // don't bother initializing this variable if it isn't needed
         // this will keep track of the remaining unmatched terms for whitelistMatchAll matches
@@ -471,10 +474,16 @@ function BigTable(itemList, options) {
           return foundMatch;
         });
       });
+    } else {
+      // if there is no whitelist, all items match by default
+      this._props.filteredList = [].concat(this.objects);
     }
 
     // remove objects from the filtered list that have a blacklist match
     if (options.blacklistTerms) {
+      // remove empty values
+      options.blacklistTerms = options.blacklistTerms.filter((term) => term.trim());
+
       const filteredListReverseCopy = [].concat(this._props.filteredList).reverse();
       let i = filteredListReverseCopy.length - 1; // track which index of the pbjets array we are on
 
@@ -517,7 +526,7 @@ function BigTable(itemList, options) {
       detail: {
         results: this._props.filteredList,
         termsMatched: termsMatched,
-        termsNotMatched: options.whitelistTerms.filter((term) => {
+        termsNotMatched: (options.whitelistTerms || []).filter((term) => {
           return !termsMatched.includes(term);
         }),
         propertiesChecked: propertiesToCheck,
