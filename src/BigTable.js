@@ -616,7 +616,7 @@ function BigTable(itemList, options) {
     }
 
     return map;
-  })()
+  })();
 
   // set column width value
   if (options.columnWidths) {
@@ -644,7 +644,9 @@ function BigTable(itemList, options) {
 
   this.node = createContainer();
   this._props.columnContainer = this.node.getElementsByClassName('big-table-column-container')[0];
-  
+  this.currentSortProperty = null;
+  this.currentSortDirection = null;
+
   /* column-resize stuff */
   
   this._props.isResizing = false;

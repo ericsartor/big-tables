@@ -5,24 +5,64 @@ return function(itemList, options) {
       itemList: array of objects
 
     options
-
-      orientation: column/row : default=row
-      scrollBar: Boolean (scrolling enabled either way, this just toggles a visible scroll bar)
-      containerClass: *string class name* (the class applied to the table container)
+      
+      scrollBar: Boolean (scrolling enabled either way, this just toggles a
+        visible scroll bar)
+      
+      containerClass: *string class name* (the class applied to the table
+        container)
+      
       headerClass: *string class name* (the class applied to the header cells)
+      
       columnClass: *string class name* (the class applied to the column containers)
+      
       cellClass: *string class name* (the class applied to every value cell)
-      scrollBarContainerClass: *string class name* (the class applied to the scroll bar background)
-      scrollBarHeadClass: *string class name* (the class applied to the scroll bar head)
+      
+      scrollBarContainerClass: *string class name* (the class applied to the
+        scroll bar background)
+      
+      scrollBarHeadClass: *string class name* (the class applied to the scroll
+        bar head)
+      
       propertyMode: all/mutual/explicit : default=mutual
+      
       properties: [array of property names] (necessary if propertyMode is explicit)
+      
       headerMap: object<string, string> mapping header titles to object properties
+      
       columnWidths: object with headers as property names and fr values
+
+      sortingOrderMap: object with property names as keys and arrays of other
+        property names as values, signifying the secondary etc properties to use
+        for sorting
+        Ex: If sorting by prop1, for identical values, use prop2
+        to sort by, and for identical prop2 values, use prop3, etc
     
   */
 
-  // validate the itemList
+  // make sure there are no unexpected options
+  const validOptions = [
+    'containerClass',
+    'headerClass',
+    'columnClass',
+    'cellClass',
+    'scrollBarTrackClass',
+    'scrollBarHeadClass',
+    'scrollBar',
+    'propertyMode',
+    'properties',
+    'headerMap',
+    'columnWidths',
+    'sortOrderMap'
+  ];
+  for (const prop in options) {
+    if (!validOptions.includes(prop)) {
+      throw Utils.generateError(`Unexpected option "${prop}" provided in` +
+        ` initializer.`);
+    }
+  }
 
+  // validate the itemList
   if (!Array.isArray(itemList)) {
     throw Utils.generateError(`itemList must be an Array, but a ${typeof itemList}` +
       `was provided.`);
@@ -144,11 +184,30 @@ return function(itemList, options) {
     }
   }
 
-  // validate orientation
-  if (options.orientation) {
-    if (!['column', 'row'].includes(options.orientation)) {
-      throw Utils.generateError(`An explicit orientation value was supplied, but ` +
-        `it was not a valid value: ${options.orientation}`);
+  // validate sortOrderMap contains valid values
+  if (options.sortOrderMap) {
+    for (const propertyName in options.sortOrderMap) {
+      // assert that the property name is in the property list
+      if (!options.properties.includes(propertyName)) {
+        throw Utils.generateError(`Invalid property name "${propertyName}"` +
+          ` provided in sortOrderMap.`);
+      }
+
+      const sortOrderArray = options.sortOrderMap[propertyName];
+
+      // assert that value is array
+      if (!Array.isArray(sortOrderArray)) {
+        throw Utils.generateError(`Value provided for property name ` +
+          ` "${propertyName}" in sortOrderMap in not an array.`);
+      }
+
+      // asssert that all the values in the array are also in the property list
+      sortOrderArray.forEach((sortPropertyName) => {
+        if (!options.properties.includes(sortPropertyName)) {
+          throw Utils.generateError(`Invalid property name "${sortPropertyName}"` +
+          ` provided in sortOrderMap array for property "${propertyName}".`);
+        }
+      });
     }
   }
 
