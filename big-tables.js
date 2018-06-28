@@ -68,7 +68,7 @@ const Utils = {
     return isValid;
   },
 
-  // loop through an array of objects and find the properties common between them
+  // loop through array of objects and find the properties common between them
   findMutualProperties(arrOfObjs) {
     // build an initial list of properties to whittle down
     let mutualProperties = [];
@@ -113,13 +113,15 @@ function BigTable(itemList, options) {
     const container = document.createElement('div');
     container.className = `big-table-container ${this._props.containerClass || ''}`;
     container.style.display = 'grid';
-    container.style.gridTemplate = `1fr / 1fr ${this._props.options.scrollBar ? ` 30px` : ''}`;
+    container.style.gridTemplate = `1fr / 1fr ` +
+      `${this._props.options.scrollBar ? ` 30px` : ''}`;
 
     // container for column nodes
     const columnContainer = document.createElement('div');
     columnContainer.className = `big-table-column-container`;
     columnContainer.style.display = 'grid';
-    columnContainer.style.gridTemplate = `1fr / ${this._props.gridTemplate.join(' ')}`;
+    columnContainer.style.gridTemplate = `1fr / ` +
+      `${this._props.gridTemplate.join(' ')}`;
 
     // container for the scroll bar
     const scrollBarContainer = document.createElement('div');
@@ -183,20 +185,35 @@ function BigTable(itemList, options) {
 
     const tableContainer = this.node;
 
+    // enable text selecting for the column the hovered value cell is in
     valueCellDiv.addEventListener('mouseover', function(e) {
-      const allValueCells = Array.from(tableContainer.getElementsByClassName(`big-table-value-cell`));
-      allValueCells.forEach((cell) => cell.classList.remove('enable-select'));
+      const allValueCells = Array.from(
+        tableContainer.getElementsByClassName(`big-table-value-cell`)
+      );
 
-      if (e.ctrlKey) {
-        // make all cells in this row selectable
-        const rowValueCells = Array.from(tableContainer.getElementsByClassName(`big-table-row-${rowNumber}`));
-        rowValueCells.forEach((cell) => cell.classList.add('enable-select'));
-      } else {
-        // make all cells in this column selectable
-        const columnValueCells = Array.from(tableContainer.getElementsByClassName(`big-table-${columnName}-value-cell`));
-        columnValueCells.forEach((cell) => cell.classList.add('enable-select'));
-      }
+      const valueCellsToEnableSelectOn = Array.from(
+        e.ctrlKey ?
+        Array.from(
+          // value cells in the same row as the hovered cell
+          tableContainer.getElementsByClassName(`big-table-row-${rowNumber}`)
+        ) :
+        Array.from(
+          // value cells in the same column as the hovered cell
+          tableContainer.getElementsByClassName(`big-table-${columnName}-value-cell`)
+        )
+      );
 
+      const valueCellsToDisableSelectOn = allValueCells.filter((valueCell) => {
+        return !valueCellsToEnableSelectOn.includes(valueCell);
+      });
+
+      valueCellsToEnableSelectOn.forEach((cell) => {
+        cell.classList.add('enable-select')
+      });
+
+      valueCellsToDisableSelectOn.forEach((cell) => {
+        cell.classList.remove('enable-select')
+      });
     });
 
     return valueCellDiv;
@@ -218,15 +235,19 @@ function BigTable(itemList, options) {
       const headerDiv = createHeader(headerTitle);
       columnFragments[headerTitle].appendChild(headerDiv);
 
-      // create all the value cells for this column, getting the property name from either
-      // the propertyMap if a headerMap was provided, or the headerTitle if not
-      const propertyName = this.propertyMap ? this.propertyMap[headerTitle] : headerTitle;
+      // create all the value cells for this column, getting the property name
+      // from either the propertyMap if a headerMap was provided, or the
+      // headerTitle if not
+      const propertyName = this.propertyMap ? 
+        this.propertyMap[headerTitle] : headerTitle;
+
       for (let i = this.offset; i < this._props.rowCount + this.offset; i++) {
         const currentObj = objectListToUse[i];
 
         if (currentObj === undefined) break;
 
-        const cellValue = currentObj[propertyName] !== undefined ? currentObj[propertyName] : '[no value]';
+        const cellValue = currentObj[propertyName] !== undefined ?
+          currentObj[propertyName] : '[no value]';
         
         const valueCellDiv = createValueCell(cellValue, i, propertyName);
         columnFragments[headerTitle].appendChild(valueCellDiv);
@@ -243,9 +264,7 @@ function BigTable(itemList, options) {
     
     // erase the whole table
     for (let i = this._props.columnContainer.children.length - 1; i >= 0; i--) {
-      if (!this._props.columnContainer.children[i].classList.contains('big-table-scroll-bar-track')) {
-        this._props.columnContainer.children[i].remove();
-      }
+      this._props.columnContainer.children[i].remove();
     }
 
     this._props.columnContainer.appendChild(columnDivs);
@@ -283,13 +302,17 @@ function BigTable(itemList, options) {
 
   const createScrollBar = () => {
     const scrollBarTrack = document.createElement('div');
-    scrollBarTrack.className = `big-table-scroll-bar-track ${this._props.scrollBarTrackClass || ''}`;
+    scrollBarTrack.className = `big-table-scroll-bar-track ` +
+      `${this._props.scrollBarTrackClass || ''}`;
+
     this._props.scrollBarTrack = scrollBarTrack;
 
     const scrollBarHead = document.createElement('div');
-    scrollBarHead.className = `big-table-scroll-bar-head ${this._props.scrollBarHeadClass || ''}`;
     scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
-    this._props.scrollBarHead = scrollBarHead;
+    scrollBarHead.className = `big-table-scroll-bar-head ` +
+      `${this._props.scrollBarHeadClass || ''}`;
+    
+     this._props.scrollBarHead = scrollBarHead;
 
     const that = this;
     scrollBarHead.addEventListener('mousedown', (e) => {
@@ -350,14 +373,15 @@ function BigTable(itemList, options) {
     if (this._props.options.scrollBar) updateScrollHead();
 
     draw();
-
     
     this.node.dispatchEvent(new CustomEvent('btscroll', {
       detail: {
         tableOffset: this.offset,
         rowCount: this._props.rowCount,
         steps: steps,
-        visibleObjects: getCurrentObjectList().slice(this.offset, this.offset + this._props.rowCount)
+        visibleObjects: getCurrentObjectList().slice(
+          this.offset, this.offset + this._props.rowCount
+        )
       }
     }));
   }
@@ -399,8 +423,8 @@ function BigTable(itemList, options) {
         insertBeforeNode = document.getElementById(options.insertBefore);
 
         if (insertBeforeNode === null) {
-          throw Utils.generateError(`Tried to append table to page using insertBefore` +
-            ` option, but string argument was not an existing ID: ` +
+          throw Utils.generateError(`Tried to append table to page using ` +
+            ` insertBefore option, but string argument was not an existing ID: ` +
             options.insertBefore);
         }
       } else if (options.insertBefore instanceof HTMLElement) {
@@ -413,9 +437,9 @@ function BigTable(itemList, options) {
       
       insertBeforeNode.parentNode.insertBefore(this.node, insertBeforeNode);
     } else {
-      throw Utils.generateError(`Tried to append table but did not supply any of the` +
-        ` valid options (appendChild, insertBefore) with either a string ID or` +
-        ` HTMLElement node.`);
+      throw Utils.generateError(`Tried to append table but did not supply any ` +
+        ` of thevalid options (appendChild, insertBefore) with either a string` +
+        `  ID orHTMLElement node.`);
     }
 
     draw();
@@ -429,15 +453,18 @@ function BigTable(itemList, options) {
   this.search = (options) => {
     /*
     options:
-        whitelistTerms: Array - at least one of these strings must be found in a row for a match
-        blacklistTerms: Array - if any of these strings are found in a row, they are not a match
+        whitelistTerms: Array - at least one of these strings must be found 
+          in a row for a match
+        blacklistTerms: Array - if any of these strings are found in a row,
+          they are not a match
         whitelistProperties: Array - only search in these properties
         blacklistProperties: Array - do not search in these properties
-        whitelistMatchAll: Boolean - if this is true, ALL of the whitelist terms must be found for a row to be a match
+        whitelistMatchAll: Boolean - if this is true, ALL of the whitelist
+          terms must be found for a row to be a match
         caseSensitive: Boolean - if true, matches must be case sensitive
     */
 
-    // check the properties to make sure they are either strings or arrays of strings
+    // check the properties to assert they are either strings or arrays of strings
     // if string, create single item array from it
     // otherwise, throw error
     const validateStringOrArrayOfStrings = (propertyName) => {
@@ -520,7 +547,8 @@ function BigTable(itemList, options) {
       }
     })()
 
-    // utility function for checking for a match against both whitelist and blacklist terms
+    // utility function for checking for a match against both whitelist
+    // and blacklist terms
     const checkForMatch = (stringToSearch, term) => {
       return options.caseSensitive ?
         stringToSearch.indexOf(term) !== -1 :
@@ -535,8 +563,10 @@ function BigTable(itemList, options) {
 
       this.objects.forEach((obj) => {
         // don't bother initializing this variable if it isn't needed
-        // this will keep track of the remaining unmatched terms for whitelistMatchAll matches
-        let termsThisObjectHasntMatched = options.whitelistMatchAll ? [].concat(options.whitelistTerms) : null;
+        // this will keep track of the remaining unmatched terms for
+        // whitelistMatchAll matches
+        let termsThisObjectHasntMatched = options.whitelistMatchAll ? 
+          [].concat(options.whitelistTerms) : null;
 
         propertiesToCheck.some((objProp) => {
           // flag for if it's been determined that this object is a match
@@ -545,7 +575,8 @@ function BigTable(itemList, options) {
           const remainingMatchesCopy = [].concat(termsThisObjectHasntMatched);
 
           // try each whitelist term on the current property value
-          const termsToLoopThrough = options.whitelistMatchAll ? remainingMatchesCopy : options.whitelistTerms;
+          const termsToLoopThrough = options.whitelistMatchAll ? 
+            remainingMatchesCopy : options.whitelistTerms;
 
           termsToLoopThrough.some((term) => {
             // properties may be undefined it property mode is set to all
@@ -562,8 +593,11 @@ function BigTable(itemList, options) {
               foundMatch = true;
               return true;
             } else if (termMatched && options.whitelistMatchAll) {
-              // if whitelistMatchAll flag is on, remove this term from the terms left to match
-              termsThisObjectHasntMatched.splice(termsThisObjectHasntMatched.indexOf(term), 1);
+              // if whitelistMatchAll flag is on, remove this term from the
+              // terms left to match
+              termsThisObjectHasntMatched.splice(
+                termsThisObjectHasntMatched.indexOf(term), 1
+              );
               
               // track that this term had a match
               Utils.addIfNotPresent(term, termsMatched);
@@ -591,8 +625,12 @@ function BigTable(itemList, options) {
       // remove empty values
       options.blacklistTerms = options.blacklistTerms.filter((term) => term.trim());
 
+      // need a copy of the list so we can remove items from the filteredList
+      // without affecting the array we are iterating through
       const filteredListReverseCopy = [].concat(this._props.filteredList).reverse();
-      let i = filteredListReverseCopy.length - 1; // track which index of the pbjets array we are on
+      
+      // track which index of the objects array we are on
+      let i = filteredListReverseCopy.length - 1;
 
       filteredListReverseCopy.forEach((obj) => {
         this._props.properties.some((objProp) => {
@@ -689,20 +727,23 @@ function BigTable(itemList, options) {
 
   // set column width value
   if (options.columnWidths) {
-    // loop through the provided column widths map and push their values to an array
-    // in the order the properties were provided in, filling in 1fr for any missing values
+    // loop through the provided column widths map and push their values to an 
+    // array in the order the properties were provided in, filling in 1fr for 
+    // any missing values
     this._props.gridTemplate = [];
     this._props.properties.forEach((propertyName) => {
       // if the value is in the columnWidths map under the propery name or column header,
       // it will be stored here
-      const value = options.columnWidths[propertyName] || options.columnWidths[this.headerMap[propertyName]] || false;
+      const value = options.columnWidths[propertyName] || 
+        options.columnWidths[this.headerMap[propertyName]] || false;
       
       // push 1fr if a value wasn't provided for the current property name
       this._props.gridTemplate.push(value || '1fr');
     });
   } else {
     // column widths default to equal percentage values
-    this._props.gridTemplate = `${100 / this.columnHeaders.length}%,`.repeat(this.columnHeaders.length).split(',');
+    this._props.gridTemplate = `${100 / this.columnHeaders.length}%,`
+      .repeat(this.columnHeaders.length).split(',');
     this._props.gridTemplate.pop(); // last element in array will be empty
   }
 

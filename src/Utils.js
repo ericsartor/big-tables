@@ -38,7 +38,7 @@ const Utils = {
     return isValid;
   },
 
-  // loop through an array of objects and find the properties common between them
+  // loop through array of objects and find the properties common between them
   findMutualProperties(arrOfObjs) {
     // build an initial list of properties to whittle down
     let mutualProperties = [];
