@@ -8,3 +8,4 @@ const codeFromFiles = files.map((file) => {
 .join('\r\n');
 
 fs.writeFileSync('./big-tables.js', `const BigTable = (function() {${codeFromFiles}})();`, {encoding:'utf8'});
+fs.writeFileSync('./docs/big-tables.js', `const BigTable = (function() {${codeFromFiles}})();`, {encoding:'utf8'});
