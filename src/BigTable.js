@@ -1,4 +1,8 @@
 function BigTable(itemList, options) {
+  /* PRIVATE CONSTANTS */
+
+  const NO_VALUE = '[no value]';
+
   /* PRIVATE METHODS */
 
   const createContainer = () => {
@@ -113,7 +117,7 @@ function BigTable(itemList, options) {
   }
 
   const getCurrentObjectList = () => {
-    return this._props.filteredList || this.objects;
+    return this._props.sortedList || this._props.filteredList || this.objects;
   }
 
   const draw = () => {
@@ -140,7 +144,7 @@ function BigTable(itemList, options) {
         if (currentObj === undefined) break;
 
         const cellValue = currentObj[propertyName] !== undefined ?
-          currentObj[propertyName] : '[no value]';
+          currentObj[propertyName] : NO_VALUE;
         
         const valueCellDiv = createValueCell(cellValue, i, propertyName);
         columnFragments[headerTitle].appendChild(valueCellDiv);
@@ -162,6 +166,22 @@ function BigTable(itemList, options) {
 
     this._props.columnContainer.appendChild(columnDivs);
   }
+
+  const updateTableForNewList = () => {
+    this.offset = 0;
+    if (this._props.options.scrollBar) {
+      this._props.scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
+      updateScrollHead();
+    }
+    draw();
+  }
+
+  const updateSort = () => {
+    this.sort({
+      propertyName: this.currentSortProperty,
+      direction: this.currentSortDirection
+    });
+  };
 
   /* SCROLLING STUFF */
 
@@ -552,13 +572,13 @@ function BigTable(itemList, options) {
       });
     }
 
-    // filtering is complete, draw the update and update the scrollbar
-    this.offset = 0;
-    if (this._props.options.scrollBar) {
-      this._props.scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
-      updateScrollHead();
+    // if the table was already sorted, sort the filtered list in the same way
+    if (this._props.sortedList) {
+      updateSort();
     }
-    draw();
+
+    // filtering is complete, draw the update and update the scrollbar
+    updateTableForNewList();
 
     this.node.dispatchEvent(new CustomEvent('btsearch', {
       detail: {
@@ -577,14 +597,189 @@ function BigTable(itemList, options) {
 
   this.clearSearch = () => {
     this._props.filteredList = null;
-    this.offset = 0;
-    if (this._props.options.scrollBar) {
-      this._props.scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
-      updateScrollHead();
+
+    // this will update the sorted list with a sort on the master list
+    if (this._props.sortedList) {
+      updateSort();
     }
-    draw();
+
+    updateTableForNewList();
 
     this.node.dispatchEvent(new CustomEvent('btclearsearch'));
+  }
+
+  this.sort = (options) => {
+    /*
+      columnName: string - the column header value to sort by, cannot be
+        supplied if propertyname is also supplied
+      propertyName: string - the item property to sort by, cannot be
+        supplied if columnName is also supplied
+      direction: string - up, down, asc, desc
+    */
+
+    // assert that columnName or propertyName were provided, not both or neither
+    if (!(!!options.propertyName ^ !!options.columnName)) {
+      if (options.propertyName && options.columnName) {
+        throw Utils.generateError(`You cannot provide both a propertyName` +
+          ` and a columnName to the sort API.`);
+      } else {
+        throw Utils.generateError(`You must provide either a propertyName` +
+          ` or a columnName to the sort API.`);
+      }
+    }
+
+    // assert that whatever was provided is either a valid property name
+    // or column header
+    if (options.propertyName) {
+      if (!this._props.properties.includes(options.propertyName)) {
+        throw Utils.generateError(`The property name provided to the sort()` +
+          ` function is not one of the current table's properties: ` +
+          options.propertyName);
+      }
+    } else {
+      if (!this.headerMap) {
+        throw Utils.generateError(`A column name was provided to the sort()` +
+          ` function, but there is no headerMap present for the table.`);
+      }
+
+      if (!this.propertyMap[options.columnName]) {
+        throw Utils.generateError(`The column name provided to the sort()` +
+          ` function is not one of the current table's column names: ` +
+          options.columnName);
+      }
+    }
+
+    // assert that direction is one of the accepted values
+    const directions = ['up', 'down', 'asc', 'desc'];
+    if (options.direction && !directions.includes(options.direction)) {
+      throw Utils.generateError(`The sort direction provided is not one of the` +
+        ` accepted values: ` + options.direction);
+    }
+
+    // normalize sort identifier to a property name
+    const sortPropertyName = options.propertyName || 
+      this.propertyMap[options.columnName];
+
+    // normalize sort direction to either 'asc' or 'desc'
+    const direction = (() => {
+      if (['up', 'down'].includes(options.direction)) {
+        return ({'up': 'asc', 'down': 'desc'})[options.direction];
+      } else if (options.direction) {
+        return options.direction;
+      } else {
+        return 'desc';
+      }
+    })();
+
+    this.currentSortProperty = sortPropertyName;
+    this.currentSortDirection = direction;
+
+    const sortHierarchy = (() => {
+      if (this._props.sortOrderMap && this._props.sortOrderMap[sortPropertyName]) {
+        return [sortPropertyName].concat(this._props.sortOrderMap[sortPropertyName]);
+      } else {
+        return [sortPropertyName];
+      }
+    })();
+
+    // nullify the sorted list so that if there already was a sorted list,
+    // we wont be re-sorting that list, but instead sorted either a filtered
+    // list or the master list
+    this._props.sortedList = null;
+
+    // creates a multi-dimensional ray as deep as the sort hierarchy where
+    // the fundamental objects are in the desired sort order
+    const sortedObjsArr = (function sortListForProp(list, prop) {
+      /*
+        let map = {
+          'value1': [arr of objs...],
+          'value2': [arr of objs...],
+          'value3': [arr of objs...],
+          ...
+        }
+      */
+     // sort the objects into arrays of identical values for current property
+      let map = {};
+      list.forEach((obj) => {
+        const objValue = (() => {
+          if (obj[prop]) {
+            return obj[prop].ToString ? obj[prop].ToString() : obj[prop];
+          } else {
+            return '0';
+          }
+        })();        
+        
+        if (map[objValue]) {
+          map[objValue].push(obj);
+        } else {
+          map[objValue] = [obj];
+        }
+      });
+    
+      // if there is a next property in the hierarchy, take the current map
+      // values (arrays of objects) and create a sorted map for it and return
+      // an array of the resulting values
+      if (sortHierarchy.length) {
+        const nextProp = sortHierarchy.shift();
+        for (const valueKey in map) {
+          map[valueKey] = sortListForProp(map[valueKey], nextProp);
+        }
+        sortHierarchy.unshift(nextProp);
+      }
+    
+      // take the current map values and put them in an array in the sorted
+      // order of their keys
+      let orderedGroups = Object.keys(map)
+      .sort((a, b) => {
+        const aAsNumber = Number(a);
+        const bAsNumber = Number(b);
+
+        a = isNaN(aAsNumber) ? a : aAsNumber;
+        b = isNaN(bAsNumber) ? b : bAsNumber;
+
+        if (a < b) return direction === 'asc' ? -1 : 1;
+        else if (a > b) return direction === 'asc' ? 1 : -1;
+        else return 0;
+      })
+      .map((valueKey) => {
+        return map[valueKey];
+      });
+    
+      return orderedGroups;
+    })(getCurrentObjectList(), sortHierarchy.shift());
+
+    // take the completed sort array and reduce it to a one dimensional array
+    const sortedObjs = [];
+    (function readArray(arr) {
+      arr.forEach((item) => {
+        if (Array.isArray(item)) {
+          readArray(item);
+        } else {
+          sortedObjs.push(item);
+        }
+      });
+    })(sortedObjsArr);
+    
+    this._props.sortedList = sortedObjs;
+    updateTableForNewList();
+
+    // put the main sort property name back on the hierarchy for the event details
+    sortHierarchy.unshift(sortPropertyName);
+    
+    this.node.dispatchEvent(new CustomEvent('btsort', {
+      detail: {
+        sortHierarchy: sortHierarchy
+      }
+    }));
+  };
+
+  this.clearSort = () => {
+    this._props.sortedList = null;
+    this.currentSortProperty = null;
+    this.currentSortDirection = null;
+    updateTableForNewList();
+
+    this.node.dispatchEvent(new CustomEvent('btclearsort'));
   }
 
   /* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR */
@@ -599,6 +794,7 @@ function BigTable(itemList, options) {
   this._props.cellClass = options.cellClass || null;
   this._props.scrollBarTrackClass = options.scrollBarTrackClass || null;
   this._props.scrollBarHeadClass = options.scrollBarHeadClass || null;
+  this._props.sortOrderMap = options.sortOrderMap || null;
   this.columnHeaders = options.columnHeaders;
 
   this.headerMap = options.headerMap;
