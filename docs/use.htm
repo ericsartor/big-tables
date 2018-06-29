@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <style>
+    .container-class {
+      font-family:arial;
+      margin-top:10px;
+    }
+    
+    .header-class {
+      background:rgb(141, 179, 255);
+      color:white;
+      font-weight:bold;
+      border-top:2px solid black;
+      border-bottom:2px solid black;
+      border-left:2px solid black;
+      padding:5px
+    }
+    .big-table-column:last-child .header-class {
+      border-right:2px solid black;
+    }
+
+    .cell-class {
+      padding:3px;
+    }
+    .cell-class:nth-child(odd) {
+      background:rgb(233, 233, 233);
+    }
+    .cell-class:nth-child(even) {
+      background:rgb(252, 252, 252);
+    }
+
+    .scroll-bar-track-class {
+      background:rgb(165, 165, 165);
+    }
+    .scroll-bar-head-class {
+      background:rgb(207, 207, 207);
+      border-radius:5px;
+      box-shadow:0 0 2px black;
+    }
+  </style>
+</head>
+<body>
+  <!-- for testing search API -->
+  <div style="user-select:none">
+    <input id="search-whitelist" type="text" style="margin-bottom:10px;" placeholder="whitelist">
+    <input id="search-blacklist" type="text" style="margin-bottom:10px;" placeholder="blacklist">
+    <a id="search-reset" href="#" onclick="return" style="display:none;">Reset</a>
+    <br>
+    <span id="result-count"></span>
+    <input id="search-case-sensitive"type="checkbox">
+    <span id="search-reset">Case-Sensitive</span>
+    <input id="search-match-all"type="checkbox">
+    <span id="search-reset">Match All</span>
+  </div>
+
+  <!-- tall element for testing table scrolling vs page scrolling -->
+  <div id="tall-element" style="height:2000px;width:100%;"></div>
+
+  <script src="../big-tables.js"></script>
+  <script>
+
+  /* setup script for creating large array of random objects */
+
+  const names = ['Eric', 'Ryan', 'Emily', 'Chris', 'Jeremy', 'Neil', 'Josh'];
+  const ageLimit = 80;
+  const birthLimit = Date.now();
+
+  const itemList = [];
+
+  for (let i = 0; i < 10000; i++) {
+    const obj = {
+      name: names[Math.round(Math.random() * (names.length - 1))],
+      age: Math.round(Math.random() * ageLimit),
+      birthday: (new Date(Math.round(Math.random() * birthLimit)).toDateString())
+    };
+
+    if (Math.random() > 0.75) {
+      obj.extraValue = Math.random();
+    }
+
+    itemList.push(obj);
+  }
+
+  </script>
+  <script>
+
+  /* Using BigTables */
+
+  const t = BigTable(itemList, {
+    containerClass: 'container-class',
+    headerClass: 'header-class',
+    // columnClass: 'column-class',
+    cellClass: 'cell-class',
+    scrollBarTrackClass: 'scroll-bar-track-class',
+    scrollBarHeadClass: 'scroll-bar-head-class',
+    scrollBar: true,
+    propertyMode: 'all',
+    // properties: ['name', 'birthday'],
+    headerMap: {
+      'name': 'First Name',
+      'age': 'Age',
+      'birthday': 'Date of Birth',
+      'extraValue': 'Extra Value'
+    },
+    columnWidths: {
+      'First Name': '20%',
+      'birthday': '150px',
+      'age': '50px'
+    },
+    sortOrderMap: {
+      'name': ['age', 'birthday'],
+      'age': ['name', 'birthday'],
+      'birthday': ['name', 'age'],
+      'extraValue': ['name', 'age', 'birthday']
+    }
+  });
+
+  t.place({
+    insertBefore: document.getElementById('tall-element')
+  });
+
+  t.sort({
+    // columnName: 'Extra Value',
+    propertyName: 'name',
+    // direction: 'asc'
+  });
+
+  // t.node.addEventListener('btscroll', (e) => console.log(e));
+  t.node.addEventListener('btsearch', (e) => console.log(e));
+  // t.node.addEventListener('btclearsearch', (e) => console.log(e));
+  t.node.addEventListener('btsort', (e) => console.log(e));
+  t.node.addEventListener('btclearsort', (e) => console.log(e));
+  
+  </script>
+  <script>
+    
+  /* create search bar functionality */
+  
+  const whitelistInput = document.getElementById('search-whitelist');
+  const blacklistInput = document.getElementById('search-blacklist');
+  const searchReset = document.getElementById('search-reset');
+  const resultCount = document.getElementById('result-count');
+  const caseSensitiveToggle = document.getElementById('search-case-sensitive');
+  const matchAllToggle = document.getElementById('search-match-all');
+
+  // initially populate the result count with the total number of items
+  resultCount.textContent = `Results: ${t.objects.length}`;
+  
+  // update result count and make sure reset button is showing after search
+  t.node.addEventListener('btsearch', (e) => {
+    resultCount.textContent = `Results: ${e.detail.results.length}`;
+    searchReset.style.display = 'initial';
+  });
+
+  // hide reset button when a search gets cleared
+  t.node.addEventListener('btclearsearch', (e) => {
+    resultCount.textContent = `Results: ${t.objects.length}`;
+    whitelistInput.value = '';
+    blacklistInput.value = '';
+    searchReset.style.display = 'none';
+  });
+
+  // clear the search and hide the reset button when it is clicked
+  searchReset.addEventListener('click', function() {
+    t.clearSearch();
+    this.style.display = 'none';
+  });
+
+  [caseSensitiveToggle, matchAllToggle].forEach((toggle) => {
+    const runSearchIfInputsAreNotEmpty = () => {
+      // run a a search if either of the inputs have a value in them
+      if (whitelistInput.value.trim() || blacklistInput.value.trim()) {
+        runSearch();
+      }
+    };
+
+    // attach listener to the toggles and their labels to re-run the search
+    // if the inputs are not empty
+    toggle.addEventListener('click', runSearchIfInputsAreNotEmpty);
+
+    // clicking the toggle label will also toggle the...toggle
+    toggle.nextElementSibling.addEventListener('click', () => {
+      toggle.checked = !toggle.checked;
+      runSearchIfInputsAreNotEmpty();
+    });
+  });
+  
+  // properties for the search query
+  const whitelistProperties = ['name', 'birthday'];
+  const blacklistProperties = ['extraValue', 'age'];
+
+  // run a BigTable search with the paramaters set forth
+  const runSearch = () => {
+    t.search({
+      whitelistTerms: whitelistInput.value.includes(',') ? whitelistInput.value.split(',') : whitelistInput.value,
+      blacklistTerms: blacklistInput.value.includes(',') ? blacklistInput.value.split(',') : blacklistInput.value,
+      whitelistProperties: whitelistProperties,
+      blacklistProperties: blacklistProperties,
+      whitelistMatchAll: matchAllToggle.checked,
+      caseSensitive: caseSensitiveToggle.checked
+    });
+  };
+
+  // perform search after typing a character into the whitelist input
+  // or clear the search if both inputs are empty
+  whitelistInput.addEventListener('keyup', function() {
+    // clear the search if both inputs are empty
+    if (!this.value.trim() && !blacklistInput.value.trim()) {
+      t.clearSearch();
+      return;
+    } else {
+      runSearch();
+    }
+  });
+
+  // perform search after typing a character into the blacklist input
+  // or clear the search if both inputs are empty
+  blacklistInput.addEventListener('keyup', function() {
+    // clear the search if both inputs are empty
+    if (!this.value.trim() && !whitelistInput.value.trim()) {
+      t.clearSearch();
+      return;
+    } else {
+      runSearch();
+    }
+  });
+
+  </script>
+</body>
+</html>
