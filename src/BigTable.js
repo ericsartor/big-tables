@@ -56,14 +56,14 @@ function BigTable(itemList, options) {
     });
 
     return container;
-  }
+  };
 
   const createColumn = () => {
     const columnDiv = document.createElement('div');
     columnDiv.className = `big-table-column ${this._props.columnClass || ''}`;
 
     return columnDiv;
-  }
+  };
 
   const createHeader = (headerName) => {
     const headerDiv = document.createElement('div');
@@ -72,7 +72,7 @@ function BigTable(itemList, options) {
     headerDiv.style.display = 'grid';
 
     return headerDiv;
-  }
+  };
 
   const createValueCell = (value, rowNumber, columnName) => {
     const valueCellDiv = document.createElement('div');
@@ -114,58 +114,67 @@ function BigTable(itemList, options) {
     });
 
     return valueCellDiv;
-  }
+  };
 
   const getCurrentObjectList = () => {
     return this._props.sortedList || this._props.filteredList || this.objects;
-  }
+  };
+
+  const getValueCells = () => {
+    return Array.from(this.node.getElementsByClassName('big-table-value-cell'));
+  };
 
   const draw = () => {
     const objectListToUse = getCurrentObjectList();
 
-    // create document fragments for the value cells for each column div
-    // simultaneously create the header divs for each column
-    const columnFragments = {};
-    for (const headerTitle of this.columnHeaders) {
-      columnFragments[headerTitle] = document.createDocumentFragment();
+    // create the columns and headers if they don't already exist
+    if (!this._props.columnDivs) {
+      this._props.columnDivs = {};
+      for (const headerTitle of this.columnHeaders) {
+        const columnDiv = createColumn();
+        this._props.columnDivs[headerTitle] = columnDiv;
+        this._props.columnContainer.appendChild(columnDiv);
+        
+        const headerDiv = createHeader(headerTitle);
+        columnDiv.appendChild(headerDiv);
+      }
+    }
 
-      const headerDiv = createHeader(headerTitle);
-      columnFragments[headerTitle].appendChild(headerDiv);
+    // create document fragments for the value cells for each column div
+    const valueCellFragements = {};
+    for (const headerTitle of this.columnHeaders) {
+      valueCellFragements[headerTitle] = document.createDocumentFragment();
 
       // create all the value cells for this column, getting the property name
       // from either the propertyMap if a headerMap was provided, or the
-      // headerTitle if not
+      // headerTitle if not (which is the property name)
       const propertyName = this.propertyMap ? 
         this.propertyMap[headerTitle] : headerTitle;
 
       for (let i = this.offset; i < this._props.rowCount + this.offset; i++) {
         const currentObj = objectListToUse[i];
 
+        // if the current list can't fill the table, break out early
         if (currentObj === undefined) break;
 
         const cellValue = currentObj[propertyName] !== undefined ?
           currentObj[propertyName] : NO_VALUE;
         
         const valueCellDiv = createValueCell(cellValue, i, propertyName);
-        columnFragments[headerTitle].appendChild(valueCellDiv);
+        valueCellFragements[headerTitle].appendChild(valueCellDiv);
       }
     }
-
-    // create the columns
-    const columnDivs = document.createDocumentFragment();
-    for (const headerTitle in columnFragments) {
-      const columnDiv = createColumn();
-      columnDiv.appendChild(columnFragments[headerTitle]);
-      columnDivs.appendChild(columnDiv);
-    }
     
-    // erase the whole table
-    for (let i = this._props.columnContainer.children.length - 1; i >= 0; i--) {
-      this._props.columnContainer.children[i].remove();
-    }
+    // erase all the current value cells
+    getValueCells().forEach((cell) => cell.remove());
 
-    this._props.columnContainer.appendChild(columnDivs);
-  }
+    // append the value cells totheir columns
+    for (const headerTitle in this._props.columnDivs) {
+      this._props.columnDivs[headerTitle].appendChild(
+        valueCellFragements[headerTitle]
+      );
+    }
+  };
 
   const updateTableForNewList = () => {
     this.offset = 0;
@@ -174,7 +183,7 @@ function BigTable(itemList, options) {
       updateScrollHead();
     }
     draw();
-  }
+  };
 
   const updateSort = () => {
     this.sort({
@@ -188,11 +197,11 @@ function BigTable(itemList, options) {
   // returns the maximum the table offset can be without showing blank space
   const determineMaxOffset = () => {
     return getCurrentObjectList().length - this._props.rowCount;
-  }
+  };
 
   const determineMaxScrollBarTop = () => {
     return 100 - parseFloat(this._props.scrollBarHead.style.height);;
-  }
+  };
 
   const determineScrollBarScalingAmount = () => {
     let amount = 100;
@@ -211,7 +220,7 @@ function BigTable(itemList, options) {
     }
 
     return amount;
-  }
+  };
 
   const createScrollBar = () => {
     const scrollBarTrack = document.createElement('div');
@@ -263,14 +272,14 @@ function BigTable(itemList, options) {
 
     scrollBarTrack.appendChild(scrollBarHead);
     this._props.scrollBarContainer.appendChild(scrollBarTrack);
-  }
+  };
 
   const updateScrollHead = () => {
     const maximumTop = determineMaxScrollBarTop();
     const maxOffset = determineMaxOffset();
     const newTop = (this.offset / maxOffset) * maximumTop;
     this._props.scrollBarHead.style.top = newTop + '%';
-  }
+  };
 
   // updates the table offset then re-draws table, firing the the btscroll event
   const performScroll = (steps) => {
@@ -297,7 +306,7 @@ function BigTable(itemList, options) {
         )
       }
     }));
-  }
+  };
 
   /**********************************
   ** PUBLIC METHODS AND PROPERTIES **
@@ -356,11 +365,11 @@ function BigTable(itemList, options) {
     }
 
     draw();
-  }
+  };
 
   this.update = () => {
     draw();
-  }
+  };
 
   // filter the table contents
   this.search = (options) => {
@@ -593,7 +602,7 @@ function BigTable(itemList, options) {
         })
       }
     }));
-  }
+  };
 
   this.clearSearch = () => {
     this._props.filteredList = null;
@@ -606,7 +615,7 @@ function BigTable(itemList, options) {
     updateTableForNewList();
 
     this.node.dispatchEvent(new CustomEvent('btclearsearch'));
-  }
+  };
 
   this.sort = (options) => {
     /*
@@ -780,7 +789,7 @@ function BigTable(itemList, options) {
     updateTableForNewList();
 
     this.node.dispatchEvent(new CustomEvent('btclearsort'));
-  }
+  };
 
   /* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR */
 
