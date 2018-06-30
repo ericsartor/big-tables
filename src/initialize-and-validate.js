@@ -53,7 +53,9 @@ return function(itemList, options) {
     'properties',
     'headerMap',
     'columnWidths',
-    'sortOrderMap'
+    'sortOrderMap',
+    'headerListeners',
+    'cellListeners'
   ];
   for (const prop in options) {
     if (!validOptions.includes(prop)) {
@@ -80,6 +82,22 @@ return function(itemList, options) {
     throw Utils.generateError(`itemList must be an Array of Objects, but a ` +
       `${typeof nonObjectitem} value was found.`);
   }
+
+  // validate classes as strings
+  const validatePropertyAsString = (propertyName) => { 
+    if (options[propertyName]) {
+      if (!Utils.isString(options[propertyName])) {
+        throw Utils.generateError(`The ${propertyName} value provided was not a string ` +
+          `value: ${options[propertyName]} (${typeof options[propertyName]})`);
+      }
+    }
+  };
+  validatePropertyAsString('containerClass');
+  validatePropertyAsString('headerClass');
+  validatePropertyAsString('columnClass');
+  validatePropertyAsString('cellClass');
+  validatePropertyAsString('scrollBarContainerClass');
+  validatePropertyAsString('scrollBarHeadClass');
   
 
   // create the columnHeader list depending on the property mode
@@ -211,22 +229,63 @@ return function(itemList, options) {
     }
   }
 
-  const validatePropertyAsString = (propertyName) => { 
-    if (options[propertyName]) {
-      if (!Utils.isString(options[propertyName])) {
-        throw Utils.generateError(`The ${propertyName} value provided was not a string ` +
-          `value: ${options[propertyName]} (${typeof options[propertyName]})`);
-      }
+  const validateListenerObjects = (listenerType) => {
+    const listenerPropertyName = listenerType + 'Listeners';
+
+    // valid keys can be header titles, property names or the word 'all'
+    const validProperties = ['all'].concat(options.columnHeaders)
+      .concat(options.properties);
+    
+    // assert that there are no invalid keys
+    const invalidKey = Object.keys(options[listenerPropertyName]).find((key) => {
+      return !validProperties.includes(key);
+    });
+    if (invalidKey !== undefined) {
+      throw Utils.generateError(`Invalid key found in ${listenerType}Listeners: ` +
+        `${invalidKey}.  Keys can only be itemList property names, header` +
+        ` titles from the headerMap, or the word "all".`);
+    }
+
+    // validate each listener object
+    for (const listenerName in options[listenerPropertyName]) {
+      const listenerObjectArray = options[listenerPropertyName][listenerName];
+
+      listenerObjectArray.forEach((listenerObject) => {
+        // check for unexpected properties
+        const validProperties = ['eventName', 'listener'];
+        const invalidProperty = Object.keys(listenerObject).find((key) => {
+          return !validProperties.includes(key);
+        });
+        if (invalidProperty !== undefined) {
+          throw Utils.generateError(`Invalid property found in ${listenerType} listener` +
+            ` object for "${listenerName}": ${invalidProperty}.  Valid properties` +
+            ` are: ${validProperties.join(', ')}.`);
+        }
+
+        // validate correct type for each property
+        if (!Utils.isString(listenerObject['eventName'])) {
+          throw Utils.generateError(`${listenerType} listener event names must` +
+            ` be strings, but a "${typeof listenerObject['eventName']}" was` +
+            ` provided in the listener object for "${listenerName}":` +
+            ` ${listenerObject['eventName']}`);
+        }
+        if (typeof listenerObject['listener'] !== 'function') {
+          throw Utils.generateError(`${listenerType} listeners must be functions,` +
+            ` but a "${typeof listenerObject['listener']}" was provided in` +
+            ` the listener object for "${listenerName}": ` +
+            ` ${listenerObject['listener']}`);
+        }
+      });
     }
   };
 
-  // validate classes as strings
-  validatePropertyAsString('containerClass');
-  validatePropertyAsString('headerClass');
-  validatePropertyAsString('columnClass');
-  validatePropertyAsString('cellClass');
-  validatePropertyAsString('scrollBarContainerClass');
-  validatePropertyAsString('scrollBarHeadClass');
+  if (options.headerListeners) {
+    validateListenerObjects('header');
+  }
+
+  if (options.cellListeners) {
+    validateListenerObjects('cell');
+  }
 
   return new BigTable(itemList, options);  
 }

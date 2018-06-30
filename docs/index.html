@@ -117,6 +117,32 @@
       'age': ['name', 'birthday'],
       'birthday': ['name', 'age'],
       'extraValue': ['name', 'age', 'birthday']
+    },
+    headerListeners: {
+      all: [{
+        eventName: 'click',
+        listener: (e, eventProperties) => {
+          console.log(e, eventProperties);
+        }
+      }, {
+        eventName: 'mouseover',
+        listener: (e, eventProperties) => {
+          console.log('header mouseover');
+        }
+      }]
+    },
+    cellListeners: {
+      all: [{
+        eventName: 'click',
+        listener: (e, eventProperties) => {
+          console.log(e, eventProperties);
+        }
+      }, {
+        eventName: 'mouseover',
+        listener: (e, eventProperties) => {
+          console.log('value cell mouseover');
+        }
+      }]
     }
   });
 

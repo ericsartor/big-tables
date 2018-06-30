@@ -231,6 +231,50 @@ function BigTable(itemList, options) {
     return Array.from(this.node.getElementsByClassName('big-table-value-cell'));
   };
 
+  // check to see if any listeners were provided for the given type of node 
+  // (headers, cells, etc) and the given column
+  const findListenerObjectsFor = (listenerType, headerTitle) => {
+    // figure out if a listener was provided for this type
+    const listenersFromPropertyName = this._props[listenerType + 'Listeners'][
+      this.propertyMap[headerTitle]
+    ];
+    const listenersFromHeaderTitle = this._props[listenerType + 'Listeners'][headerTitle];
+    const listenersFromAll = this._props[listenerType + 'Listeners']['all'];
+    const listenerObjects = listenersFromPropertyName ||
+    listenersFromHeaderTitle || listenersFromAll;
+
+    return listenerObjects;
+  };
+
+  // take an array of listener objects and apply them to the supplied node
+  const applyListenerObjects = (type, node, listenerObjects, headerTitle, object) => {
+    if (listenerObjects) {
+      listenerObjects.forEach((listenerObject) => {
+        const {eventName, listener} = listenerObject;
+        
+        if (type === 'header') {
+          node.addEventListener(eventName, (e) => {
+            listener(e, {
+              node,
+              propertyName: this.propertyMap[headerTitle],
+              headerTitle
+            });
+          });
+        } else if (type === 'cell') {
+          node.addEventListener(eventName, (e) => {
+            listener(e, {
+              node,
+              propertyName: this.propertyMap[headerTitle],
+              headerTitle,
+              object
+            });
+          });
+        }
+          
+      });
+    }
+  };
+
   const draw = () => {
     const objectListToUse = getCurrentObjectList();
 
@@ -244,6 +288,12 @@ function BigTable(itemList, options) {
         
         const headerDiv = createHeader(headerTitle);
         columnDiv.appendChild(headerDiv);
+
+        // apply user supplied listeners to the header if there are any
+        if (this._props.headerListeners) {
+          const listenerObjects = findListenerObjectsFor('header', headerTitle);
+          applyListenerObjects('header', headerDiv, listenerObjects, headerTitle);
+        }
       }
     }
 
@@ -269,6 +319,14 @@ function BigTable(itemList, options) {
         
         const valueCellDiv = createValueCell(cellValue, i, propertyName);
         valueCellFragements[headerTitle].appendChild(valueCellDiv);
+
+        // apply user supplied listeners to the header if there are any
+        if (this._props.cellListeners) {
+          const listenerObjects = findListenerObjectsFor('cell', headerTitle);
+          applyListenerObjects(
+            'cell', valueCellDiv, listenerObjects, headerTitle, currentObj
+          );
+        }
       }
     }
     
@@ -911,6 +969,8 @@ function BigTable(itemList, options) {
   this._props.scrollBarTrackClass = options.scrollBarTrackClass || null;
   this._props.scrollBarHeadClass = options.scrollBarHeadClass || null;
   this._props.sortOrderMap = options.sortOrderMap || null;
+  this._props.headerListeners = options.headerListeners || null;
+  this._props.cellListeners = options.cellListeners || null;
   this.columnHeaders = options.columnHeaders;
 
   this.headerMap = options.headerMap;
@@ -1028,7 +1088,9 @@ return function(itemList, options) {
     'properties',
     'headerMap',
     'columnWidths',
-    'sortOrderMap'
+    'sortOrderMap',
+    'headerListeners',
+    'cellListeners'
   ];
   for (const prop in options) {
     if (!validOptions.includes(prop)) {
@@ -1055,6 +1117,22 @@ return function(itemList, options) {
     throw Utils.generateError(`itemList must be an Array of Objects, but a ` +
       `${typeof nonObjectitem} value was found.`);
   }
+
+  // validate classes as strings
+  const validatePropertyAsString = (propertyName) => { 
+    if (options[propertyName]) {
+      if (!Utils.isString(options[propertyName])) {
+        throw Utils.generateError(`The ${propertyName} value provided was not a string ` +
+          `value: ${options[propertyName]} (${typeof options[propertyName]})`);
+      }
+    }
+  };
+  validatePropertyAsString('containerClass');
+  validatePropertyAsString('headerClass');
+  validatePropertyAsString('columnClass');
+  validatePropertyAsString('cellClass');
+  validatePropertyAsString('scrollBarContainerClass');
+  validatePropertyAsString('scrollBarHeadClass');
   
 
   // create the columnHeader list depending on the property mode
@@ -1186,22 +1264,63 @@ return function(itemList, options) {
     }
   }
 
-  const validatePropertyAsString = (propertyName) => { 
-    if (options[propertyName]) {
-      if (!Utils.isString(options[propertyName])) {
-        throw Utils.generateError(`The ${propertyName} value provided was not a string ` +
-          `value: ${options[propertyName]} (${typeof options[propertyName]})`);
-      }
+  const validateListenerObjects = (listenerType) => {
+    const listenerPropertyName = listenerType + 'Listeners';
+
+    // valid keys can be header titles, property names or the word 'all'
+    const validProperties = ['all'].concat(options.columnHeaders)
+      .concat(options.properties);
+    
+    // assert that there are no invalid keys
+    const invalidKey = Object.keys(options[listenerPropertyName]).find((key) => {
+      return !validProperties.includes(key);
+    });
+    if (invalidKey !== undefined) {
+      throw Utils.generateError(`Invalid key found in ${listenerType}Listeners: ` +
+        `${invalidKey}.  Keys can only be itemList property names, header` +
+        ` titles from the headerMap, or the word "all".`);
+    }
+
+    // validate each listener object
+    for (const listenerName in options[listenerPropertyName]) {
+      const listenerObjectArray = options[listenerPropertyName][listenerName];
+
+      listenerObjectArray.forEach((listenerObject) => {
+        // check for unexpected properties
+        const validProperties = ['eventName', 'listener'];
+        const invalidProperty = Object.keys(listenerObject).find((key) => {
+          return !validProperties.includes(key);
+        });
+        if (invalidProperty !== undefined) {
+          throw Utils.generateError(`Invalid property found in ${listenerType} listener` +
+            ` object for "${listenerName}": ${invalidProperty}.  Valid properties` +
+            ` are: ${validProperties.join(', ')}.`);
+        }
+
+        // validate correct type for each property
+        if (!Utils.isString(listenerObject['eventName'])) {
+          throw Utils.generateError(`${listenerType} listener event names must` +
+            ` be strings, but a "${typeof listenerObject['eventName']}" was` +
+            ` provided in the listener object for "${listenerName}":` +
+            ` ${listenerObject['eventName']}`);
+        }
+        if (typeof listenerObject['listener'] !== 'function') {
+          throw Utils.generateError(`${listenerType} listeners must be functions,` +
+            ` but a "${typeof listenerObject['listener']}" was provided in` +
+            ` the listener object for "${listenerName}": ` +
+            ` ${listenerObject['listener']}`);
+        }
+      });
     }
   };
 
-  // validate classes as strings
-  validatePropertyAsString('containerClass');
-  validatePropertyAsString('headerClass');
-  validatePropertyAsString('columnClass');
-  validatePropertyAsString('cellClass');
-  validatePropertyAsString('scrollBarContainerClass');
-  validatePropertyAsString('scrollBarHeadClass');
+  if (options.headerListeners) {
+    validateListenerObjects('header');
+  }
+
+  if (options.cellListeners) {
+    validateListenerObjects('cell');
+  }
 
   return new BigTable(itemList, options);  
 }})();

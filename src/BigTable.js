@@ -124,6 +124,50 @@ function BigTable(itemList, options) {
     return Array.from(this.node.getElementsByClassName('big-table-value-cell'));
   };
 
+  // check to see if any listeners were provided for the given type of node 
+  // (headers, cells, etc) and the given column
+  const findListenerObjectsFor = (listenerType, headerTitle) => {
+    // figure out if a listener was provided for this type
+    const listenersFromPropertyName = this._props[listenerType + 'Listeners'][
+      this.propertyMap[headerTitle]
+    ];
+    const listenersFromHeaderTitle = this._props[listenerType + 'Listeners'][headerTitle];
+    const listenersFromAll = this._props[listenerType + 'Listeners']['all'];
+    const listenerObjects = listenersFromPropertyName ||
+    listenersFromHeaderTitle || listenersFromAll;
+
+    return listenerObjects;
+  };
+
+  // take an array of listener objects and apply them to the supplied node
+  const applyListenerObjects = (type, node, listenerObjects, headerTitle, object) => {
+    if (listenerObjects) {
+      listenerObjects.forEach((listenerObject) => {
+        const {eventName, listener} = listenerObject;
+        
+        if (type === 'header') {
+          node.addEventListener(eventName, (e) => {
+            listener(e, {
+              node,
+              propertyName: this.propertyMap[headerTitle],
+              headerTitle
+            });
+          });
+        } else if (type === 'cell') {
+          node.addEventListener(eventName, (e) => {
+            listener(e, {
+              node,
+              propertyName: this.propertyMap[headerTitle],
+              headerTitle,
+              object
+            });
+          });
+        }
+          
+      });
+    }
+  };
+
   const draw = () => {
     const objectListToUse = getCurrentObjectList();
 
@@ -137,6 +181,12 @@ function BigTable(itemList, options) {
         
         const headerDiv = createHeader(headerTitle);
         columnDiv.appendChild(headerDiv);
+
+        // apply user supplied listeners to the header if there are any
+        if (this._props.headerListeners) {
+          const listenerObjects = findListenerObjectsFor('header', headerTitle);
+          applyListenerObjects('header', headerDiv, listenerObjects, headerTitle);
+        }
       }
     }
 
@@ -162,6 +212,14 @@ function BigTable(itemList, options) {
         
         const valueCellDiv = createValueCell(cellValue, i, propertyName);
         valueCellFragements[headerTitle].appendChild(valueCellDiv);
+
+        // apply user supplied listeners to the header if there are any
+        if (this._props.cellListeners) {
+          const listenerObjects = findListenerObjectsFor('cell', headerTitle);
+          applyListenerObjects(
+            'cell', valueCellDiv, listenerObjects, headerTitle, currentObj
+          );
+        }
       }
     }
     
@@ -804,6 +862,8 @@ function BigTable(itemList, options) {
   this._props.scrollBarTrackClass = options.scrollBarTrackClass || null;
   this._props.scrollBarHeadClass = options.scrollBarHeadClass || null;
   this._props.sortOrderMap = options.sortOrderMap || null;
+  this._props.headerListeners = options.headerListeners || null;
+  this._props.cellListeners = options.cellListeners || null;
   this.columnHeaders = options.columnHeaders;
 
   this.headerMap = options.headerMap;
