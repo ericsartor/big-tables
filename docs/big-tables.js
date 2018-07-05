@@ -239,7 +239,7 @@ const Sorting = {
 
   quicksort(arr, sortHierarchy, direction) {
     return (function quicksort(arr, left, right, sortHierarchy, direction) {
-      if (left >= right) {
+      if (left >= right || right - 1 === left) {
         return;
       }
 
@@ -1019,7 +1019,8 @@ function BigTable(itemList, options) {
       }
     })();
 
-    // wipe the list before sorting when we're doing an update after a filter
+    // wipe the sorted list before sorting when we're doing an update after a filter
+    // so that the current list is the filtered list
     if (performingSortUpdate) {
       this._props.sortedList = null;
     }

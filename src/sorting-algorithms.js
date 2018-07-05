@@ -132,7 +132,7 @@ const Sorting = {
 
   quicksort(arr, sortHierarchy, direction) {
     return (function quicksort(arr, left, right, sortHierarchy, direction) {
-      if (left >= right) {
+      if (left >= right || right - 1 === left) {
         return;
       }
 
