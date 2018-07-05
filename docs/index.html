@@ -74,8 +74,8 @@
 
   for (let i = 0; i < 10000; i++) {
     const obj = {
-      name: names[Math.round(Math.random() * (names.length - 1))],
-      age: Math.round(Math.random() * ageLimit),
+      name: Math.round(Math.random() * 1000000),
+      age: Math.round(Math.random() * 1000000),
       birthday: (new Date(Math.round(Math.random() * birthLimit)).toDateString())
     };
 
@@ -115,19 +115,24 @@
     sortOrderMap: {
       'name': ['age', 'birthday'],
       'age': ['name', 'birthday'],
-      'birthday': ['name', 'age'],
-      'extraValue': ['name', 'age', 'birthday']
+      'birthday': ['name', 'age']
+      // 'extraValue': ['name', 'age', 'birthday']
     },
     headerListeners: {
       all: [{
         eventName: 'click',
         listener: (e, eventProperties) => {
-          console.log(e, eventProperties);
+          // console.log(e, eventProperties);
+
+          t.sort({
+            propertyName: eventProperties.propertyName,
+            direction: t.currentSortDirection === 'asc' ? 'desc' : 'asc'
+          });
         }
       }, {
         eventName: 'mouseover',
         listener: (e, eventProperties) => {
-          console.log('header mouseover');
+          // console.log('header mouseover');
         }
       }]
     },
@@ -135,12 +140,12 @@
       all: [{
         eventName: 'click',
         listener: (e, eventProperties) => {
-          console.log(e, eventProperties);
+          // console.log(e, eventProperties);
         }
       }, {
         eventName: 'mouseover',
         listener: (e, eventProperties) => {
-          console.log('value cell mouseover');
+          // console.log('value cell mouseover');
         }
       }]
     }
@@ -150,16 +155,11 @@
     insertBefore: document.getElementById('tall-element')
   });
 
-  t.sort({
-    // columnName: 'Extra Value',
-    propertyName: 'name',
-    // direction: 'asc'
-  });
-
   // t.node.addEventListener('btscroll', (e) => console.log(e));
   t.node.addEventListener('btsearch', (e) => console.log(e));
   // t.node.addEventListener('btclearsearch', (e) => console.log(e));
   t.node.addEventListener('btsort', (e) => console.log(e));
+  t.node.addEventListener('btsort', (e) => console.log(e.detail));
   t.node.addEventListener('btclearsort', (e) => console.log(e));
   
   </script>

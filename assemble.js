@@ -1,4 +1,5 @@
-const files = ['style', 'Utils', 'BigTable', 'initialize-and-validate'];
+const files = ['style', 'Utils', 'sorting-algorithms',
+ 'BigTable', 'initialize-and-validate'];
 
 const fs = require('fs');
 
