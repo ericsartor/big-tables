@@ -48,7 +48,7 @@ return function(itemList, options) {
     'cellClass',
     'scrollBarTrackClass',
     'scrollBarHeadClass',
-    'scrollBar',
+    'showScrollBar',
     'propertyMode',
     'properties',
     'headerMap',
@@ -83,7 +83,7 @@ return function(itemList, options) {
       `${typeof nonObjectitem} value was found.`);
   }
 
-  // validate classes as strings
+  // validate CSS classes as strings
   const validatePropertyAsString = (propertyName) => { 
     if (options[propertyName]) {
       if (!Utils.isString(options[propertyName])) {
@@ -100,21 +100,19 @@ return function(itemList, options) {
   validatePropertyAsString('scrollBarHeadClass');
   
 
-  // create the columnHeader list depending on the property mode
+  // create the property list depending on the property mode
   const propertyMode = options.propertyMode || 'mutual';
-  options.columnHeaders = null;
 
   switch (propertyMode) {
     case 'all':
       options.properties = Utils.findAllProperties(itemList);
-      options.columnHeaders = options.properties;
       break;
     case 'mutual':
       options.properties = Utils.findMutualProperties(itemList);
-      options.columnHeaders = options.properties;
       break;
     case 'explicit':
-      // if propertyMode is explicit, make sure it is an array and only contains strings
+      // if propertyMode is explicit, make sure it is an array and only contains
+      // strings
 
       // assert that properties array was provided
       if (options.properties === undefined) {
@@ -124,51 +122,49 @@ return function(itemList, options) {
 
       // assert that properties value is an Array
       if (!Array.isArray(options.properties)) {
-        throw Utils.generateError(`propertyMode was set to explicit, but properties` +
-          ` value was not an Array of strings, you supplied a: ` + typeof options.properties);
+        throw Utils.generateError(`propertyMode was set to explicit, but ` +
+          `properties value was not an Array of strings, you supplied a: ` + 
+          `${typeof options.properties}`);
       }
 
       // assert that property array is not empty
       if (options.properties.length < 1) {
-        throw Utils.generateError(`propertyMode was set to explicit, but properties` +
-          ` array is empty.`);
+        throw Utils.generateError(`propertyMode was set to explicit, but` +
+          ` properties array is empty.`);
       }
 
       // assert that all the property array values are strings
       options.properties.forEach((propertyName) => {
         if (!Utils.isString(propertyName)) {
-          throw Utils.generateError(`Not all property names that were included in` +
-            ` the property array are strings.`);
+          throw Utils.generateError(`Not all property names that were included` +
+            ` in the property array are strings.`);
         }
       });
-
-      options.columnHeaders = options.properties;
       break;
   }
 
-  // if headerMap is provided, attempt to map it's values onto the columnHeaders
-  // array, and flag any missing or invalid property maps
+  // validate headerMap
   if (options.headerMap) {
-    options.columnHeaders = options.columnHeaders.map((propertyName) => {
+    for (const propertyName in options.headerMap) {
+      // assert propertyName exists as an item property for this table
+      if (!options.properties.includes(propertyName)) {
+        throw Utils.generateError(`A headerMap was provided, but it contains` +
+          ` an invalid property name as a key based on your property mode:` +
+          ` ${propertyName}`);
+      }
+
+
+      // assert that the value for this property map is a string
       const value = options.headerMap[propertyName];
-
-      // assert that the mapped value for this property exists
-      if (value === undefined) {
-        throw Utils.generateError(`headerMap was provided but it does not contain` +
-          ` a mapping for the ${propertyName} property`);
-      }
-
-      // assert that the mapped value for this property is a string
       if (!Utils.isString(value)) {
-        throw Utils.generateError(`One of the values in the headerMap provided` +
-          ` was not a string: ${value} (${typeof value})`);
+        throw Utils.generateError(`A headerMap was provided for the ` +
+          ` "${propertyName}" property, but the value is not a string: ` +
+          ` ${value} (${typeof value})`);
       }
-      
-      return value;
-    });
+    }
   }
 
-  // validate that the column width map contains valid column or property names
+  // validate that the column width map contains valid property names
   // and valid unit values
   if (options.columnWidths) {
     // assert that the value is an object
@@ -181,9 +177,9 @@ return function(itemList, options) {
     // valid column headers and that all values are strings and valid CSS values
     for (const key in options.columnWidths) {
       // assert that the key is valid
-      if (!options.columnHeaders.includes(key) && !options.properties.includes(key)) {
+      if (!options.properties.includes(key)) {
         throw Utils.generateError(`An invalid columnWidths key was provided that` +
-          ` did not match any column headers or item property keys: ${key}`);
+          ` did not match any item properties: ${key}`);
       }
 
       const value = options.columnWidths[key];
@@ -232,18 +228,17 @@ return function(itemList, options) {
   const validateListenerObjects = (listenerType) => {
     const listenerPropertyName = listenerType + 'Listeners';
 
-    // valid keys can be header titles, property names or the word 'all'
-    const validProperties = ['all'].concat(options.columnHeaders)
-      .concat(options.properties);
+    // valid keys can be property names or the word 'all'
+    const validKeys = ['all'].concat(options.properties);
     
     // assert that there are no invalid keys
     const invalidKey = Object.keys(options[listenerPropertyName]).find((key) => {
-      return !validProperties.includes(key);
+      return !validKeys.includes(key);
     });
     if (invalidKey !== undefined) {
       throw Utils.generateError(`Invalid key found in ${listenerType}Listeners: ` +
-        `${invalidKey}.  Keys can only be itemList property names, header` +
-        ` titles from the headerMap, or the word "all".`);
+        `${invalidKey}.  Keys can only be itemList property names` +
+        ` or the word "all".`);
     }
 
     // validate each listener object

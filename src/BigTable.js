@@ -11,7 +11,7 @@ function BigTable(itemList, options) {
     container.className = `big-table-container ${this._props.containerClass || ''}`;
     container.style.display = 'grid';
     container.style.gridTemplate = `1fr / 1fr ` +
-      `${this._props.options.scrollBar ? ` 30px` : ''}`;
+      `${this._props.showScrollBar ? ` 30px` : ''}`;
 
     // container for column nodes
     const columnContainer = document.createElement('div');
@@ -28,7 +28,7 @@ function BigTable(itemList, options) {
 
     container.appendChild(columnContainer);
 
-    if (this._props.options.scrollBar) {
+    if (this._props.showScrollBar) {
       container.appendChild(scrollBarContainer);
     }
 
@@ -124,23 +124,25 @@ function BigTable(itemList, options) {
     return Array.from(this.node.getElementsByClassName('big-table-value-cell'));
   };
 
+  const getHeaderTitle = (propertyName) => {
+    return this._props.headerMap ?
+      this._props.headerMap[propertyName] : propertyName;
+  };
+
   // check to see if any listeners were provided for the given type of node 
   // (headers, cells, etc) and the given column
-  const findListenerObjectsFor = (listenerType, headerTitle) => {
-    // figure out if a listener was provided for this type
-    const listenersFromPropertyName = this._props[listenerType + 'Listeners'][
-      this.propertyMap[headerTitle]
-    ];
-    const listenersFromHeaderTitle = this._props[listenerType + 'Listeners'][headerTitle];
+  const findListenerObjectsFor = (listenerType, propertyName) => {
+    // figure out if a listener was provided for this type (header/value cell)
+    const listenersFromPropertyName =
+      this._props[listenerType + 'Listeners'][propertyName];
     const listenersFromAll = this._props[listenerType + 'Listeners']['all'];
-    const listenerObjects = listenersFromPropertyName ||
-    listenersFromHeaderTitle || listenersFromAll;
+    const listenerObjects = listenersFromPropertyName || listenersFromAll;
 
     return listenerObjects;
   };
 
   // take an array of listener objects and apply them to the supplied node
-  const applyListenerObjects = (type, node, listenerObjects, headerTitle, object) => {
+  const applyListenerObjects = (type, node, listenerObjects, propertyName, object) => {
     if (listenerObjects) {
       listenerObjects.forEach((listenerObject) => {
         const {eventName, listener} = listenerObject;
@@ -149,16 +151,16 @@ function BigTable(itemList, options) {
           node.addEventListener(eventName, (e) => {
             listener(e, {
               node,
-              propertyName: this.propertyMap[headerTitle],
-              headerTitle
+              propertyName: propertyName,
+              headerTitle: this.headerMap[propertyName] || propertyName,
             });
           });
         } else if (type === 'cell') {
           node.addEventListener(eventName, (e) => {
             listener(e, {
               node,
-              propertyName: this.propertyMap[headerTitle],
-              headerTitle,
+              propertyName: propertyName,
+              headerTitle: this.headerMap[propertyName] || propertyName,
               object
             });
           });
@@ -169,38 +171,40 @@ function BigTable(itemList, options) {
   };
 
   const draw = () => {
-    const objectListToUse = getCurrentObjectList();
-
     // create the columns and headers if they don't already exist
     if (!this._props.columnDivs) {
+      // map of property names to column nodes
       this._props.columnDivs = {};
-      for (const headerTitle of this.columnHeaders) {
+      
+      // create a column and header node for each item property in the table
+      for (const propertyName of this.itemProperties) {
         const columnDiv = createColumn();
-        this._props.columnDivs[headerTitle] = columnDiv;
+        this._props.columnDivs[propertyName] = columnDiv;
         this._props.columnContainer.appendChild(columnDiv);
         
+        const headerTitle = getHeaderTitle(propertyName);
         const headerDiv = createHeader(headerTitle);
         columnDiv.appendChild(headerDiv);
-
+        
         // apply user supplied listeners to the header if there are any
         if (this._props.headerListeners) {
-          const listenerObjects = findListenerObjectsFor('header', headerTitle);
-          applyListenerObjects('header', headerDiv, listenerObjects, headerTitle);
+          const listenerObjects = findListenerObjectsFor('header', propertyName);
+          applyListenerObjects('header', headerDiv, listenerObjects, propertyName);
         }
       }
     }
 
-    // create document fragments for the value cells for each column div
+    // grab a reference to the current list once instead in each loop iteration
+    const objectListToUse = getCurrentObjectList();
+
+    // map of document fragments for the value cells for each column node
     const valueCellFragements = {};
-    for (const headerTitle of this.columnHeaders) {
-      valueCellFragements[headerTitle] = document.createDocumentFragment();
 
-      // create all the value cells for this column, getting the property name
-      // from either the propertyMap if a headerMap was provided, or the
-      // headerTitle if not (which is the property name)
-      const propertyName = this.propertyMap ? 
-        this.propertyMap[headerTitle] : headerTitle;
+    // create the values cells for each column node
+    for (const propertyName of this.itemProperties) {
+      valueCellFragements[propertyName] = document.createDocumentFragment();
 
+      // create all the value cells for this column
       for (let i = this.offset; i < this._props.rowCount + this.offset; i++) {
         const currentObj = objectListToUse[i];
 
@@ -211,13 +215,13 @@ function BigTable(itemList, options) {
           currentObj[propertyName] : NO_VALUE;
         
         const valueCellDiv = createValueCell(cellValue, i, propertyName);
-        valueCellFragements[headerTitle].appendChild(valueCellDiv);
+        valueCellFragements[propertyName].appendChild(valueCellDiv);
 
         // apply user supplied listeners to the header if there are any
         if (this._props.cellListeners) {
-          const listenerObjects = findListenerObjectsFor('cell', headerTitle);
+          const listenerObjects = findListenerObjectsFor('cell', propertyName);
           applyListenerObjects(
-            'cell', valueCellDiv, listenerObjects, headerTitle, currentObj
+            'cell', valueCellDiv, listenerObjects, propertyName, currentObj
           );
         }
       }
@@ -226,17 +230,17 @@ function BigTable(itemList, options) {
     // erase all the current value cells
     getValueCells().forEach((cell) => cell.remove());
 
-    // append the value cells totheir columns
-    for (const headerTitle in this._props.columnDivs) {
-      this._props.columnDivs[headerTitle].appendChild(
-        valueCellFragements[headerTitle]
+    // append the value cells to their columns
+    for (const propertyName in this._props.columnDivs) {
+      this._props.columnDivs[propertyName].appendChild(
+        valueCellFragements[propertyName]
       );
     }
   };
 
   const updateTableForNewList = () => {
     this.offset = 0;
-    if (this._props.options.scrollBar) {
+    if (this._props.showScrollBar) {
       this._props.scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
       updateScrollHead();
     }
@@ -350,7 +354,7 @@ function BigTable(itemList, options) {
       return;
     }
 
-    if (this._props.options.scrollBar) updateScrollHead();
+    if (this._props.showScrollBar) updateScrollHead();
 
     draw();
     
@@ -475,7 +479,7 @@ function BigTable(itemList, options) {
     const validateColumns = (propertyName) => {
       const columnNames = options[propertyName];
       const invalidColumnName = columnNames.find((name) => {
-        return !this._props.properties.includes(name);
+        return !this.itemProperties.includes(name);
       });
 
       if (invalidColumnName) {
@@ -514,7 +518,7 @@ function BigTable(itemList, options) {
         if (options.whitelistProperties && !options.blacklistProperties) {
           return options.whitelistProperties;
         } else if (options.blacklistProperties && !options.whitelistProperties) {
-          return this._props.properties.filter((prop => {
+          return this.itemProperties.filter((prop => {
             return !options.blacklistProperties.includes(prop);
           }));
         } else {
@@ -523,7 +527,7 @@ function BigTable(itemList, options) {
           }));
         }
       } else {
-        return this._props.properties;
+        return this.itemProperties;
       }
     })()
 
@@ -613,7 +617,7 @@ function BigTable(itemList, options) {
       let i = filteredListReverseCopy.length - 1;
 
       filteredListReverseCopy.forEach((obj) => {
-        this._props.properties.some((objProp) => {
+        this.itemProperties.some((objProp) => {
           // flag for if a match was found in this property
           let foundMatch = false;
 
@@ -698,7 +702,7 @@ function BigTable(itemList, options) {
     // assert that whatever was provided is either a valid property name
     // or column header
     if (options.propertyName) {
-      if (!this._props.properties.includes(options.propertyName)) {
+      if (!this.itemProperties.includes(options.propertyName)) {
         throw Utils.generateError(`The property name provided to the sort()` +
           ` function is not one of the current table's properties: ` +
           options.propertyName);
@@ -808,25 +812,46 @@ function BigTable(itemList, options) {
     this.node.dispatchEvent(new CustomEvent('btclearsort'));
   };
 
+  this.runSortBenchmarks = () => {
+
+  };
+
   /* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR */
 
-  this._props = {}; // holds all the private properties that the user won't need to see
-  this._props.options = options;
-  this._props.properties = options.properties; // this is a string list of the object properties to be used as columns
-  this.objects = itemList; // this is only a reference, so when the external itemList gets updated, the internal itemList does as well
+  // holds all the private properties that the user won't need to see
+  this._props = {};
+
+  // this is a string list of the object properties to be used as columns
+  // this was either provided by the user (and validated) or determined
+  // by a utility function based on the property mode designated by the user
+  this.itemProperties = options.properties;
+
+  // this is only a reference, so when the external itemList gets updated,
+  // the internal itemList does as well
+  this.objects = itemList;
+
+  // CSS classes defined by the user
   this._props.containerClass = options.containerClass || null;
   this._props.columnClass = options.columnClass || null;
   this._props.headerClass = options.headerClass || null;
   this._props.cellClass = options.cellClass || null;
   this._props.scrollBarTrackClass = options.scrollBarTrackClass || null;
   this._props.scrollBarHeadClass = options.scrollBarHeadClass || null;
+
+  // optional parameters supplied by user
   this._props.sortOrderMap = options.sortOrderMap || null;
   this._props.headerListeners = options.headerListeners || null;
   this._props.cellListeners = options.cellListeners || null;
-  this.columnHeaders = options.columnHeaders;
+  this._props.showScrollBar = options.showScrollBar || false;
+  this._props.columnWidths = options.columnWidths || null;
 
-  this.headerMap = options.headerMap;
+  // optional parameters the user may need access to
+  this.headerMap = options.headerMap || null;
   this.propertyMap = (() => {
+    // this is the inverse of the headerMap
+    // it can be used to get a property name from a column header
+    // only exists if the user provided a headerMap
+
     if (options.headerMap === undefined) {
       return undefined;
     }
@@ -842,15 +867,16 @@ function BigTable(itemList, options) {
     return map;
   })();
 
-  // set column width value
+  // this sets up the grid template for the columns depending on if the user
+  // supplied specific widths for any of the columns
   if (options.columnWidths) {
     // loop through the provided column widths map and push their values to an 
     // array in the order the properties were provided in, filling in 1fr for 
     // any missing values
     this._props.gridTemplate = [];
-    this._props.properties.forEach((propertyName) => {
-      // if the value is in the columnWidths map under the propery name or column header,
-      // it will be stored here
+    this.itemProperties.forEach((propertyName) => {
+      // if the value is in the columnWidths map under the property name or 
+      // column header, it will be stored here
       const value = options.columnWidths[propertyName] || 
         options.columnWidths[this.headerMap[propertyName]] || false;
       
@@ -864,26 +890,31 @@ function BigTable(itemList, options) {
     this._props.gridTemplate.pop(); // last element in array will be empty
   }
 
-  /* initialize some internal properties */
+  /* initialize properties not supplied by the user */
 
   this.node = createContainer();
-  this._props.columnContainer = this.node.getElementsByClassName('big-table-column-container')[0];
+  this._props.columnContainer =
+    this.node.getElementsByClassName('big-table-column-container')[0];
+
+  // sorting properties
 
   this._props.currentSortAlgorithm = 'btsort';
   this.currentSortProperty = null;
   this.currentSortDirection = null;
 
-  /* column-resize stuff */
+  //  column resizing properties
   
   this._props.isResizing = false;
   
-  /* scrolling */
+  // scrolling properties
   
   this.offset = 0;
   this._props.rowCount = 20;
 
-  if (this._props.options.scrollBar) {
-    this._props.scrollBarContainer = this.node.getElementsByClassName('big-table-scroll-bar-container')[0];
+  if (this._props.showScrollBar) {
+    this._props.scrollBarContainer =
+      this.node.getElementsByClassName('big-table-scroll-bar-container')[0];
+
     createScrollBar();
   }
 }
