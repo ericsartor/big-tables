@@ -74,7 +74,8 @@
 
   for (let i = 0; i < 10000; i++) {
     const obj = {
-      name: Math.round(Math.random() * 1000000),
+      // name: Math.round(Math.random() * 1000000),
+      name: names[Math.round(Math.random() * (names.length - 1))],
       age: Math.round(Math.random() * 1000000),
       birthday: (new Date(Math.round(Math.random() * birthLimit)).toDateString())
     };

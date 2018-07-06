@@ -119,6 +119,10 @@ const Sorting = {
         
         // skip identical values because they're not less than or greater than...
         if (aValue === bValue) continue;
+
+        // handle if either value is undefined
+        if (aValue === undefined) return true;
+        if (bValue === undefined) return false;
     
         let aAsNumber = Number(aValue);
         let bAsNumber = Number(bValue);
@@ -239,7 +243,7 @@ const Sorting = {
 
   quicksort(arr, sortHierarchy, direction) {
     return (function quicksort(arr, left, right, sortHierarchy, direction) {
-      if (left >= right || right - 1 === left) {
+      if (left >= right) {
         return;
       }
 
