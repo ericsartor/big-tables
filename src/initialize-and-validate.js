@@ -42,6 +42,7 @@ return function(itemList, options) {
 
   // make sure there are no unexpected options
   const validOptions = [
+    'theme',
     'containerClass',
     'headerClass',
     'columnClass',
@@ -55,7 +56,8 @@ return function(itemList, options) {
     'columnWidths',
     'sortOrderMap',
     'headerListeners',
-    'cellListeners'
+    'cellListeners',
+    'enableSelection'
   ];
   for (const prop in options) {
     if (!validOptions.includes(prop)) {
@@ -81,6 +83,19 @@ return function(itemList, options) {
   if (foundNonObjectItem) {
     throw Utils.generateError(`itemList must be an Array of Objects, but a ` +
       `${typeof nonObjectitem} value was found.`);
+  }
+
+  // assert that theme provided is a valid theme
+  if (options.theme !== undefined) {
+    if (!Utils.isString(options.theme)) {
+      throw Utils.generateError(`Theme name must be a string, you provided` +
+        ` a "${typeof options.theme}"`);
+    }
+
+    if (!Object.keys(Themes).includes(options.theme) || options.theme === '') {
+      throw Utils.generateError(`Supplied theme name is not one of the built` +
+        ` in themes: "${options.theme}"`);
+    }
   }
 
   // validate CSS classes as strings

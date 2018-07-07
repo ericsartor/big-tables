@@ -93,6 +93,7 @@
   /* Using BigTables */
 
   const t = BigTable(itemList, {
+    theme: 'btdefault',
     containerClass: 'container-class',
     headerClass: 'header-class',
     // columnClass: 'column-class',
@@ -100,6 +101,7 @@
     scrollBarTrackClass: 'scroll-bar-track-class',
     scrollBarHeadClass: 'scroll-bar-head-class',
     showScrollBar: true,
+    enableSelection: true,
     propertyMode: 'all',
     // properties: ['name', 'birthday'],
     headerMap: {
@@ -141,7 +143,7 @@
       all: [{
         eventName: 'click',
         listener: (e, eventProperties) => {
-          // console.log(e, eventProperties);
+          console.log(e, eventProperties);
         }
       }, {
         eventName: 'mouseover',

@@ -74,11 +74,13 @@ function BigTable(itemList, options) {
     return headerDiv;
   };
 
-  const createValueCell = (value, rowNumber, columnName) => {
+  const createValueCell = (value, rowNumber, columnName, rowObject) => {
     const valueCellDiv = document.createElement('div');
     valueCellDiv.className = `big-table-value-cell big-table-row-${rowNumber}` +
-      ` big-table-${columnName}-value-cell ${this._props.cellClass || ''}`;
+      ` big-table-${columnName}-value-cell ${this._props.cellClass || ''}` +
+      ` ${isInSelection(rowObject) ? 'big-table-selected' : ''}`;
     valueCellDiv.textContent = value;
+    valueCellDiv.rowObject = rowObject;
 
     const tableContainer = this.node;
 
@@ -88,7 +90,7 @@ function BigTable(itemList, options) {
         tableContainer.getElementsByClassName(`big-table-value-cell`)
       );
 
-      const valueCellsToEnableSelectOn = Array.from(
+      const valueCellsToEnableHighlightOn = Array.from(
         e.ctrlKey ?
         Array.from(
           // value cells in the same row as the hovered cell
@@ -100,21 +102,81 @@ function BigTable(itemList, options) {
         )
       );
 
-      const valueCellsToDisableSelectOn = allValueCells.filter((valueCell) => {
-        return !valueCellsToEnableSelectOn.includes(valueCell);
+      const valueCellsToDisableHighlightOn = allValueCells.filter((valueCell) => {
+        return !valueCellsToEnableHighlightOn.includes(valueCell);
       });
 
-      valueCellsToEnableSelectOn.forEach((cell) => {
-        cell.classList.add('enable-select')
+      valueCellsToEnableHighlightOn.forEach((cell) => {
+        cell.classList.add('big-table-enable-highlight')
       });
 
-      valueCellsToDisableSelectOn.forEach((cell) => {
-        cell.classList.remove('enable-select')
+      valueCellsToDisableHighlightOn.forEach((cell) => {
+        cell.classList.remove('big-table-enable-highlight')
       });
+    });
+
+    // row selection listener
+    valueCellDiv.addEventListener('click', function(e) {
+      handleRowSelection(e, valueCellDiv.rowObject);
+      draw();
     });
 
     return valueCellDiv;
   };
+
+  /* row selection functions */
+
+  const clearSelection = () => {
+    while (this.selectedItems.length !== 0) {
+      this.selectedItems.pop();
+    }
+  };
+
+  const removeFromSelection = (rowObject) => {
+    const i = this.selectedItems[this.selectedItems.indexOf(rowObject)];
+    this.selectedItems.splice(i, 1);
+  };
+
+  const addToSelection = (rowObject) => {
+    this.selectedItems.push(rowObject);
+  };
+
+  const isInSelection = (rowObject) => {
+    return this.selectedItems.includes(rowObject);
+  };
+
+  const handleRowSelection = (e, rowObject) => {
+    if (this.selectedItems.length === 0) {
+      addToSelection(rowObject);
+    } else {
+      if (e.ctrlKey) {
+        if (isInSelection(rowObject)) {
+          removeFromSelection();
+        } else {
+          addToSelection(rowObject);
+        }
+      } else if (e.shiftKey) {
+        const currentList = getCurrentObjectList();
+
+        const selectionStartIndex = currentList.indexOf(this.selectedItems[0]);
+        const clickedIndex = currentList.indexOf(rowObject);
+        const startingIndex = Math.min(clickedIndex, selectionStartIndex);
+        const endingIndex = Math.max(clickedIndex, selectionStartIndex);
+                
+        for (let i = startingIndex; i <= endingIndex; i++) {
+          const item = currentList[i];
+          if (!isInSelection(item)) {
+            addToSelection(item);
+          }
+        }
+      } else {
+        clearSelection();
+        addToSelection(rowObject);
+      }
+    }
+  };
+
+  /* value request functions */
 
   const getCurrentObjectList = () => {
     return this._props.sortedList || this._props.filteredList || this.objects;
@@ -128,6 +190,8 @@ function BigTable(itemList, options) {
     return this._props.headerMap ?
       this._props.headerMap[propertyName] : propertyName;
   };
+
+  /* listener application functions */
 
   // check to see if any listeners were provided for the given type of node 
   // (headers, cells, etc) and the given column
@@ -214,7 +278,10 @@ function BigTable(itemList, options) {
         const cellValue = currentObj[propertyName] !== undefined ?
           currentObj[propertyName] : NO_VALUE;
         
-        const valueCellDiv = createValueCell(cellValue, i, propertyName);
+        const valueCellDiv = createValueCell(
+          cellValue, i, propertyName, currentObj
+        );
+
         valueCellFragements[propertyName].appendChild(valueCellDiv);
 
         // apply user supplied listeners to the header if there are any
@@ -373,6 +440,8 @@ function BigTable(itemList, options) {
   /**********************************
   ** PUBLIC METHODS AND PROPERTIES **
   ***********************************/
+
+  this.clearSelection = clearSelection;
 
   this.place = (options) => {
     if (!options) {
@@ -839,10 +908,12 @@ function BigTable(itemList, options) {
   this._props.scrollBarHeadClass = options.scrollBarHeadClass || null;
 
   // optional parameters supplied by user
+  this._props.themeName = options.theme || 'btdefault';
   this._props.sortOrderMap = options.sortOrderMap || null;
   this._props.headerListeners = options.headerListeners || null;
   this._props.cellListeners = options.cellListeners || null;
   this._props.showScrollBar = options.showScrollBar || false;
+  this._props.enableSelection = options.enableSelection || false;
   this._props.columnWidths = options.columnWidths || null;
 
   // optional parameters the user may need access to
@@ -916,5 +987,22 @@ function BigTable(itemList, options) {
       this.node.getElementsByClassName('big-table-scroll-bar-container')[0];
 
     createScrollBar();
+  }
+
+  // row selection properties
+
+  if (this._props.enableSelection) {
+    this.selectedItems = [];
+  }
+
+  // apply theme settings
+
+  const style = document.createElement('style');
+  style.innerHTML = Themes[this._props.themeName];
+
+  if (document.head.children.length) {
+    document.head.insertBefore(style, document.head.children[0]);
+  } else {
+    document.head.appendChild(style);  
   }
 }
