@@ -354,10 +354,20 @@ function BigTable(itemList, options) {
     return headerDiv;
   };
 
-  const createValueCell = (value, rowNumber, columnName, rowObject) => {
+  const createValueCell = (value, rowNumber, propertyName, rowObject) => {
+    value = (() => {
+      if (!this._props.valueParseFunctions) {
+        return value;
+      } else if (!this._props.valueParseFunctions[propertyName]) {
+        return value;
+      } else {
+        return this._props.valueParseFunctions[propertyName](value);
+      }
+    })();
+
     const valueCellDiv = document.createElement('div');
     valueCellDiv.className = `big-table-value-cell big-table-row-${rowNumber}` +
-      ` big-table-${columnName}-value-cell ${this._props.cellClass || ''}` +
+      ` big-table-${propertyName}-value-cell ${this._props.cellClass || ''}` +
       ` ${isInSelection(rowObject) ? 'big-table-selected' : ''}`;
     valueCellDiv.textContent = value;
     valueCellDiv.rowObject = rowObject;
@@ -378,7 +388,7 @@ function BigTable(itemList, options) {
         ) :
         Array.from(
           // value cells in the same column as the hovered cell
-          tableContainer.getElementsByClassName(`big-table-${columnName}-value-cell`)
+          tableContainer.getElementsByClassName(`big-table-${propertyName}-value-cell`)
         )
       );
 
@@ -467,8 +477,7 @@ function BigTable(itemList, options) {
   };
 
   const getHeaderTitle = (propertyName) => {
-    return this._props.headerMap ?
-      this._props.headerMap[propertyName] : propertyName;
+    return this.headerMap ? this.headerMap[propertyName] : propertyName;
   };
 
   /* listener application functions */
@@ -1190,6 +1199,7 @@ function BigTable(itemList, options) {
   // optional parameters supplied by user
   this._props.themeName = options.theme || 'btdefault';
   this._props.sortOrderMap = options.sortOrderMap || null;
+  this._props.valueParseFunctions = options.valueParseFunctions || null;
   this._props.headerListeners = options.headerListeners || null;
   this._props.cellListeners = options.cellListeners || null;
   this._props.showScrollBar = options.showScrollBar || false;
@@ -1338,6 +1348,7 @@ return function(itemList, options) {
     'scrollBarTrackClass',
     'scrollBarHeadClass',
     'showScrollBar',
+    'enableSelection',
     'propertyMode',
     'properties',
     'headerMap',
@@ -1345,7 +1356,7 @@ return function(itemList, options) {
     'sortOrderMap',
     'headerListeners',
     'cellListeners',
-    'enableSelection'
+    'valueParseFunctions'
   ];
   for (const prop in options) {
     if (!validOptions.includes(prop)) {
@@ -1583,6 +1594,32 @@ return function(itemList, options) {
 
   if (options.cellListeners) {
     validateListenerObjects('cell');
+  }
+
+  if (options.valueParseFunctions) {
+    // valid keys can be property names or the word 'all'
+    const validKeys = ['all'].concat(options.properties);
+    
+    // assert that there are no invalid keys
+    const invalidKey = Object.keys(options.valueParseFunctions).find((key) => {
+      return !validKeys.includes(key);
+    });
+    if (invalidKey !== undefined) {
+      throw Utils.generateError(`Invalid key found in valueParseFunctions map:` +
+        ` "${invalidKey}".  Keys can only be itemList property names` +
+        ` or the word "all".`);
+    }
+
+    // validate each parse function object
+    for (const propertyName in options.valueParseFunctions) {
+      const parseFunction = options.valueParseFunctions[propertyName];
+
+      if (typeof parseFunction !== 'function') {
+        throw Utils.generateError(`The value provided for "${propertyName}"` +
+          ` in the valueParseFunctions map was a "${typeof parseFunction}".` +
+          ` A function was expected.`);
+      }
+    }
   }
 
   return new BigTable(itemList, options);  

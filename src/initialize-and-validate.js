@@ -50,6 +50,7 @@ return function(itemList, options) {
     'scrollBarTrackClass',
     'scrollBarHeadClass',
     'showScrollBar',
+    'enableSelection',
     'propertyMode',
     'properties',
     'headerMap',
@@ -57,7 +58,7 @@ return function(itemList, options) {
     'sortOrderMap',
     'headerListeners',
     'cellListeners',
-    'enableSelection'
+    'valueParseFunctions'
   ];
   for (const prop in options) {
     if (!validOptions.includes(prop)) {
@@ -295,6 +296,32 @@ return function(itemList, options) {
 
   if (options.cellListeners) {
     validateListenerObjects('cell');
+  }
+
+  if (options.valueParseFunctions) {
+    // valid keys can be property names or the word 'all'
+    const validKeys = ['all'].concat(options.properties);
+    
+    // assert that there are no invalid keys
+    const invalidKey = Object.keys(options.valueParseFunctions).find((key) => {
+      return !validKeys.includes(key);
+    });
+    if (invalidKey !== undefined) {
+      throw Utils.generateError(`Invalid key found in valueParseFunctions map:` +
+        ` "${invalidKey}".  Keys can only be itemList property names` +
+        ` or the word "all".`);
+    }
+
+    // validate each parse function object
+    for (const propertyName in options.valueParseFunctions) {
+      const parseFunction = options.valueParseFunctions[propertyName];
+
+      if (typeof parseFunction !== 'function') {
+        throw Utils.generateError(`The value provided for "${propertyName}"` +
+          ` in the valueParseFunctions map was a "${typeof parseFunction}".` +
+          ` A function was expected.`);
+      }
+    }
   }
 
   return new BigTable(itemList, options);  

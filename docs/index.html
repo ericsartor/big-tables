@@ -73,11 +73,38 @@
   const itemList = [];
 
   for (let i = 0; i < 10000; i++) {
+    const birthTime = Math.round(Math.random() * birthLimit);
+    const birthDateObject = new Date(birthTime);
+
+    const age = (() => {
+      const now = new Date(Date.now());
+      
+      let age = now.getFullYear() - birthDateObject.getFullYear();
+
+      const nowMonth = now.getMonth();
+      const birthMonth = birthDateObject.getMonth();
+
+      if (nowMonth < birthMonth) {
+        return --age;
+      }
+
+      const nowDay = now.getDay();
+      const birthDay = birthDateObject.getDay();
+      
+      if (nowMonth == birthMonth && nowDay < birthDay) {
+        return --age;
+      }
+
+      return age;
+    })();
+
     const obj = {
       // name: Math.round(Math.random() * 1000000),
       name: names[Math.round(Math.random() * (names.length - 1))],
-      age: Math.round(Math.random() * 1000000),
-      birthday: (new Date(Math.round(Math.random() * birthLimit)).toDateString())
+      // age: Math.round(Math.random() * 1000000),
+      age: age,
+      // birthday: (new Date(Math.round(Math.random() * birthLimit)).toDateString()),
+      birthTime: birthTime
     };
 
     if (Math.random() > 0.75) {
@@ -103,22 +130,22 @@
     showScrollBar: true,
     enableSelection: true,
     propertyMode: 'all',
-    // properties: ['name', 'birthday'],
+    // properties: ['name', 'birthTime'],
     headerMap: {
       'name': 'First Name',
       'age': 'Age',
-      'birthday': 'Date of Birth',
+      'birthTime': 'Date of Birth',
       'extraValue': 'Extra Value'
     },
     columnWidths: {
       'name': '20%',
-      'birthday': '150px',
+      'birthTime': '150px',
       'age': '50px'
     },
     sortOrderMap: {
-      'name': ['age', 'birthday'],
-      'age': ['name', 'birthday'],
-      'birthday': ['name', 'age']
+      'name': ['age', 'birthTime'],
+      'age': ['name', 'birthTime'],
+      'birthTime': ['name', 'age']
       // 'extraValue': ['name', 'age', 'birthday']
     },
     headerListeners: {
@@ -151,6 +178,11 @@
           // console.log('value cell mouseover');
         }
       }]
+    },
+    valueParseFunctions: {
+      birthTime: (value) => {
+        return (new Date(value)).toDateString();
+      }
     }
   });
 
