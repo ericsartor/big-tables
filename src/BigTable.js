@@ -852,7 +852,7 @@ function BigTable(itemList, options) {
           sortHierarchy,
           direction
         );
-      } else {
+      } else if (this._props.currentSortAlgorithm === 'btsort') {
         // create a list copy for sorting in place
         const currentListCopy = [].concat(getCurrentObjectList());
 
@@ -861,6 +861,13 @@ function BigTable(itemList, options) {
           sortHierarchy,
           direction
         );
+      } else {
+        // create a list copy for sorting in place
+        const currentListCopy = [].concat(getCurrentObjectList());
+
+        this._props.sortedList = currentListCopy.sort((a, b) => {
+          return Sorting.compare(a, b, 'less', sortHierarchy, direction) ? 1 : -1;
+        });
       }
     }
 
@@ -979,7 +986,7 @@ function BigTable(itemList, options) {
 
   // sorting properties
 
-  this._props.currentSortAlgorithm = 'btsort';
+  this._props.currentSortAlgorithm = 'javascript';
   this.currentSortProperty = null;
   this.currentSortDirection = null;
 

@@ -55,7 +55,7 @@ const Sorting = {
     }
   },
 
-  algorithms: ['btsort', 'quicksort'],
+  algorithms: ['btsort', 'javascript'],
 
   btsort(arr, sortHierarchy, direction) {
     const sortHierarchyCopy = [].concat(sortHierarchy);
@@ -134,38 +134,5 @@ const Sorting = {
     })(sortedObjsArr);
 
     return sortedObjs;
-  },
-
-  quicksort(arr, sortHierarchy, direction) {
-    return (function quicksort(arr, left, right, sortHierarchy, direction) {
-      if (left >= right) {
-        return;
-      }
-
-      const pivot = right;
-      let wall = left;
-      let pivotValue = arr[pivot];
-
-      for (let i = left; i <= right; i++) {
-        if (i !== pivot) {
-          if (Sorting.compare(arr[i], pivotValue, 'less', sortHierarchy, direction)) {
-            // current value is less than pivot, move it next to wall and increase wall
-            let rightOfWallValue = arr[wall];
-            arr[wall] = arr[i];
-            arr[i] = rightOfWallValue;
-            wall++
-          }
-        }
-      }
-
-      // swap the pivot with the item to the right of the wall
-      arr[pivot] = arr[wall];
-      arr[wall] = pivotValue;
-
-      quicksort(arr, left, wall - 1, sortHierarchy, direction);
-      quicksort(arr, wall + 1, right, sortHierarchy, direction);
-
-      return arr;
-    })(arr, 0, arr.length - 1, sortHierarchy, direction);
   }
 };
