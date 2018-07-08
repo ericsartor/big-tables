@@ -130,6 +130,7 @@
     scrollBarHeadClass: 'scroll-bar-head-class',
     showScrollBar: true,
     enableSelection: true,
+    enableColumnResizing: true,
     propertyMode: 'all',
     // properties: ['name', 'birthTime'],
     headerMap: {
@@ -141,7 +142,8 @@
     columnWidths: {
       'name': '20%',
       'birthTime': '150px',
-      'age': '50px'
+      'age': '50px',
+      'extraValue': '400px'
     },
     sortOrderMap: {
       'name': ['age', 'birthTime'],
@@ -149,24 +151,24 @@
       'birthTime': ['name', 'age']
       // 'extraValue': ['name', 'age', 'birthday']
     },
-    headerListeners: {
-      all: [{
-        eventName: 'click',
-        listener: (e, eventProperties) => {
-          // console.log(e, eventProperties);
+    // headerListeners: {
+    //   all: [{
+    //     eventName: 'click',
+    //     listener: (e, eventProperties) => {
+    //       // console.log(e, eventProperties);
 
-          t.sort({
-            propertyName: eventProperties.propertyName,
-            direction: t.currentSortDirection === 'asc' ? 'desc' : 'asc'
-          });
-        }
-      }, {
-        eventName: 'mouseover',
-        listener: (e, eventProperties) => {
-          // console.log('header mouseover');
-        }
-      }]
-    },
+    //       t.sort({
+    //         propertyName: eventProperties.propertyName,
+    //         direction: t.currentSortDirection === 'asc' ? 'desc' : 'asc'
+    //       });
+    //     }
+    //   }, {
+    //     eventName: 'mouseover',
+    //     listener: (e, eventProperties) => {
+    //       // console.log('header mouseover');
+    //     }
+    //   }]
+    // },
     cellListeners: {
       all: [{
         eventName: 'click',

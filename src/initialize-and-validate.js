@@ -51,6 +51,7 @@ return function(itemList, options) {
     'scrollBarHeadClass',
     'showScrollBar',
     'enableSelection',
+    'enableColumnResizing',
     'propertyMode',
     'properties',
     'headerMap',

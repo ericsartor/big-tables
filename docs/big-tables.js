@@ -164,7 +164,7 @@ const Sorting = {
     }
   },
 
-  algorithms: ['btsort', 'quicksort'],
+  algorithms: ['btsort', 'javascript'],
 
   btsort(arr, sortHierarchy, direction) {
     const sortHierarchyCopy = [].concat(sortHierarchy);
@@ -243,39 +243,6 @@ const Sorting = {
     })(sortedObjsArr);
 
     return sortedObjs;
-  },
-
-  quicksort(arr, sortHierarchy, direction) {
-    return (function quicksort(arr, left, right, sortHierarchy, direction) {
-      if (left >= right) {
-        return;
-      }
-
-      const pivot = right;
-      let wall = left;
-      let pivotValue = arr[pivot];
-
-      for (let i = left; i <= right; i++) {
-        if (i !== pivot) {
-          if (Sorting.compare(arr[i], pivotValue, 'less', sortHierarchy, direction)) {
-            // current value is less than pivot, move it next to wall and increase wall
-            let rightOfWallValue = arr[wall];
-            arr[wall] = arr[i];
-            arr[i] = rightOfWallValue;
-            wall++
-          }
-        }
-      }
-
-      // swap the pivot with the item to the right of the wall
-      arr[pivot] = arr[wall];
-      arr[wall] = pivotValue;
-
-      quicksort(arr, left, wall - 1, sortHierarchy, direction);
-      quicksort(arr, wall + 1, right, sortHierarchy, direction);
-
-      return arr;
-    })(arr, 0, arr.length - 1, sortHierarchy, direction);
   }
 };
 function BigTable(itemList, options) {
@@ -350,6 +317,74 @@ function BigTable(itemList, options) {
     headerDiv.className = `big-table-header ${this._props.headerClass || ''}`;
     headerDiv.textContent = headerName;
     headerDiv.style.display = 'grid';
+
+    if (this._props.enableColumnResizing) {
+      // returns false if mouse is not in a resize hitbox, or
+      // 'left'/'right' if it is (signifying which side of the header)
+      const isMouseInResizeHitbox = (headerDiv, clientX) => {
+        const headerRect = headerDiv.getBoundingClientRect();
+        const leftEdge = Math.floor(headerRect.left);
+        const rightEdge = Math.ceil(headerRect.right);
+
+        const columnDivs = getColumnNodes();
+
+        const firstColumn = columnDivs[0];
+
+        const hitboxWidth = 10;
+
+        if (
+          clientX >= leftEdge &&
+          clientX < leftEdge + hitboxWidth / 2 &&
+          headerDiv.parentNode !== firstColumn  
+        ) {
+          return 'left';
+        } else if (
+          clientX <= rightEdge &&
+          clientX >= rightEdge - hitboxWidth / 2
+        ) {
+          return 'right';
+        } else {
+          return false;
+        }
+      };
+
+      // change the cursor to a resize cursor if inside a resize hitbox
+      headerDiv.addEventListener('mousemove', (e) => {
+        const whichResizeHitbox = isMouseInResizeHitbox(headerDiv, e.clientX);
+
+        if (whichResizeHitbox && headerDiv.style.cursor !== 'col-resize') {
+          headerDiv.style.cursor = 'col-resize';
+        } else if (!whichResizeHitbox && headerDiv.style.cursor) {
+          headerDiv.style.cursor = null;
+        }
+      });
+
+      // reset the cursor to default if it was set to resize
+      headerDiv.addEventListener('mouseout', () => {
+        if (headerDiv.style.cursor) {
+          headerDiv.style.cursor = null;
+        }
+      });
+
+      // if user clicks on a resize hitbox, enable resizing and set the column
+      // div to be resized
+      headerDiv.addEventListener('mousedown', (e) => {
+        const whichResizeHitbox = isMouseInResizeHitbox(headerDiv, e.clientX);
+
+        if (!whichResizeHitbox) return;
+
+        if (whichResizeHitbox === 'left') {
+          // if grabbing the left hitbox, resize the element to the left
+          this._props.resizeColumn = headerDiv.parentNode.previousElementSibling;
+        } else if (whichResizeHitbox === 'right') {
+          // if grabbing right hitbox, resize current element
+          this._props.resizeColumn = headerDiv.parentNode;
+        }
+
+        this._props.resizing = true;
+        this._props.previousResizeX = e.clientX;
+      });
+    }
 
     return headerDiv;
   };
@@ -472,12 +507,27 @@ function BigTable(itemList, options) {
     return this._props.sortedList || this._props.filteredList || this.objects;
   };
 
+  const getColumnNodes = () => {
+    return this._props.columnContainer.children;
+  };
+
   const getValueCells = () => {
     return Array.from(this.node.getElementsByClassName('big-table-value-cell'));
   };
 
   const getHeaderTitle = (propertyName) => {
     return this.headerMap ? this.headerMap[propertyName] : propertyName;
+  };
+
+  /* value update functions */
+
+  const updateColumnGridTemplate = (i, value) => {
+    const gridTemplateString = this._props.columnContainer.style
+      .gridTemplateColumns;
+    const gridTemplateArr = gridTemplateString.split(' ');
+    gridTemplateArr[i] = value;
+
+    this._props.columnContainer.style.gridTemplateColumns = gridTemplateArr.join(' ');
   };
 
   /* listener application functions */
@@ -1211,6 +1261,7 @@ function BigTable(itemList, options) {
   this._props.cellListeners = options.cellListeners || null;
   this._props.showScrollBar = options.showScrollBar || false;
   this._props.enableSelection = options.enableSelection || false;
+  this._props.enableColumnResizing = options.enableColumnResizing || false;
   this._props.columnWidths = options.columnWidths || null;
 
   // optional parameters the user may need access to
@@ -1266,7 +1317,7 @@ function BigTable(itemList, options) {
 
   // sorting properties
 
-  this._props.currentSortAlgorithm = 'quicksort';
+  this._props.currentSortAlgorithm = 'javascript';
   this.currentSortProperty = null;
   this.currentSortDirection = null;
 
@@ -1301,6 +1352,40 @@ function BigTable(itemList, options) {
     document.head.insertBefore(style, document.head.children[0]);
   } else {
     document.head.appendChild(style);  
+  }
+
+  // enable column resizing
+  if (this._props.enableColumnResizing) {
+    const resetResizeProperties = () => {
+      this._props.resizing = false;
+      this._props.previousResizeX = null;
+      this._props.resizeColumn = null;
+    };
+
+    resetResizeProperties();
+
+    window.addEventListener('mousemove', (e) => {
+      if (!this._props.resizing) return;
+
+      const change = e.clientX - this._props.previousResizeX;
+
+      const columnContainer = this._props.resizeColumn.parentNode;
+      const columnDiv = this._props.resizeColumn;
+      const columnContainerWidth = columnContainer.getBoundingClientRect().width;
+      const columnWidth = columnDiv.getBoundingClientRect().width;
+      const newColumnPercentage = (columnWidth + change) / columnContainerWidth;
+
+      const columnChildIndex = Array.from(columnContainer.children)
+        .indexOf(columnDiv);
+      
+      updateColumnGridTemplate(columnChildIndex, `${newColumnPercentage*100}%`);
+
+      this._props.previousResizeX = e.clientX;
+    });
+
+    window.addEventListener('mouseup', () => {
+      resetResizeProperties();
+    });
   }
 }
 return function(itemList, options) {
@@ -1356,6 +1441,7 @@ return function(itemList, options) {
     'scrollBarHeadClass',
     'showScrollBar',
     'enableSelection',
+    'enableColumnResizing',
     'propertyMode',
     'properties',
     'headerMap',
