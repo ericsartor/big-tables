@@ -1,48 +1,44 @@
 const BigTable = (function() {const Themes = {
-  'btdefault': `
-    .big-table-container {
-      overflow:hidden;
-    }
-    
-    .big-table-vertical-scroll-bar-track {
-      position:relative;
-      grid-column:-2;
-      grid-row:1;
-    }
-    .big-table-vertical-scroll-bar-head {
-      position:relative;
-      width:80%;
-      margin-left:10%;
-    }
-
-    .big-table-horizontal-scroll-bar-track {
-      position:relative;
-    }
-    .big-table-horizontal-scroll-bar-head {
-      position:relative;
-      height:26px;
-      margin-top:2px;
-    }
-    
-    .big-table-header {
-      user-select:none;
-      overflow:hidden;
-      white-space:nowrap;
-    }
-    
-    .big-table-value-cell {
-      user-select:none;
-      overflow:hidden;
-      white-space:nowrap;
-    }
-    .big-table-value-cell.big-table-enable-highlight {
-      user-select:initial;
-    }
-    .big-table-value-cell.big-table-selected {
-      background:blue !important;
-    }
-  `
+  'btdefault': ``
 };
+
+const requiredStylesContent = `
+  .big-table-container {
+    overflow:hidden;
+  }
+
+  .big-table-vertical-scroll-bar-track {
+    position:relative;
+  }
+  .big-table-vertical-scroll-bar-head {
+    position:relative;
+  }
+
+  .big-table-horizontal-scroll-bar-track {
+    position:relative;
+  }
+  .big-table-horizontal-scroll-bar-head {
+    position:relative;
+  }
+
+  .big-table-header {
+    user-select:none;
+    overflow:hidden;
+    white-space:nowrap;
+  }
+
+  .big-table-value-cell {
+    user-select:none;
+    overflow:hidden;
+    white-space:nowrap;
+  }
+  .big-table-value-cell.big-table-enable-highlight {
+    user-select:initial;
+  }
+  .big-table-value-cell.big-table-selected {
+    background:blue !important;
+  }
+`;
 const Utils = {
   generateError(errorText) {
     return new Error(`Big Tables: ${errorText}`);
@@ -1521,14 +1517,22 @@ function BigTable(itemList, options) {
 
   // apply theme settings
 
-  const style = document.createElement('style');
-  style.innerHTML = Themes[this._props.themeName];
+  const themeStyles = document.createElement('style');
+  themeStyles.innerHTML = Themes[this._props.themeName];
 
   if (document.head.children.length) {
-    document.head.insertBefore(style, document.head.children[0]);
+    document.head.insertBefore(themeStyles, document.head.children[0]);
   } else {
-    document.head.appendChild(style);  
+    document.head.appendChild(themeStyles);  
   }
+
+  // apply required styling for functionality
+  
+  const requiredStyles = document.createElement('style');
+  requiredStyles.innerHTML = requiredStylesContent;
+  document.head.appendChild(requiredStyles);
+
+  requiredStyles
 
   // enable column resizing
   if (this._props.enableColumnResizing) {

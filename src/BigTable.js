@@ -1261,14 +1261,22 @@ function BigTable(itemList, options) {
 
   // apply theme settings
 
-  const style = document.createElement('style');
-  style.innerHTML = Themes[this._props.themeName];
+  const themeStyles = document.createElement('style');
+  themeStyles.innerHTML = Themes[this._props.themeName];
 
   if (document.head.children.length) {
-    document.head.insertBefore(style, document.head.children[0]);
+    document.head.insertBefore(themeStyles, document.head.children[0]);
   } else {
-    document.head.appendChild(style);  
+    document.head.appendChild(themeStyles);  
   }
+
+  // apply required styling for functionality
+  
+  const requiredStyles = document.createElement('style');
+  requiredStyles.innerHTML = requiredStylesContent;
+  document.head.appendChild(requiredStyles);
+
+  requiredStyles
 
   // enable column resizing
   if (this._props.enableColumnResizing) {
