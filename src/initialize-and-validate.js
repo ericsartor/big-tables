@@ -49,7 +49,10 @@ return function(itemList, options) {
     'cellClass',
     'scrollBarTrackClass',
     'scrollBarHeadClass',
-    'showScrollBar',
+    'horizontalScrollBarTrackClass',
+    'horizontalScrollBarHeadClass',
+    'showVerticalScrollBar',
+    'showHorizontalScrollBar',
     'enableSelection',
     'enableColumnResizing',
     'propertyMode',
@@ -114,7 +117,10 @@ return function(itemList, options) {
   validatePropertyAsString('columnClass');
   validatePropertyAsString('cellClass');
   validatePropertyAsString('scrollBarContainerClass');
+  validatePropertyAsString('scrollBarTrackClass');
   validatePropertyAsString('scrollBarHeadClass');
+  validatePropertyAsString('horizontalScrollBarTrackClass');
+  validatePropertyAsString('horizontalScrollBarHeadClass');
   
 
   // create the property list depending on the property mode

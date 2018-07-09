@@ -10,8 +10,10 @@ function BigTable(itemList, options) {
     const container = document.createElement('div');
     container.className = `big-table-container ${this._props.containerClass || ''}`;
     container.style.display = 'grid';
-    container.style.gridTemplate = `1fr / 1fr ` +
-      `${this._props.showScrollBar ? ` 30px` : ''}`;
+    container.style.gridTemplate = `1fr` +
+      `${this._props.showHorizontalScrollBar ? ` 30px` : ''}` +
+      ` / 1fr` +
+      `${this._props.showVerticalScrollBar ? ` 30px` : ''}`;
 
     // container for column nodes
     const columnContainer = document.createElement('div');
@@ -19,16 +21,25 @@ function BigTable(itemList, options) {
     columnContainer.style.display = 'grid';
     columnContainer.style.gridTemplate = `1fr / ` +
       `${this._props.gridTemplate.join(' ')}`;
-
-    // container for the scroll bar
-    const scrollBarContainer = document.createElement('div');
-    scrollBarContainer.className = `big-table-scroll-bar-container`;
-    scrollBarContainer.style.display = 'grid';
-    scrollBarContainer.style.gridTemplate = `1fr / 1fr`;
+    columnContainer.style.position = 'relative';
 
     container.appendChild(columnContainer);
+    
+    if (this._props.showVerticalScrollBar) {
+      // container for the vertical scroll bar
+      const scrollBarContainer = document.createElement('div');
+      scrollBarContainer.className = `big-table-vertical-scroll-bar-container`;
+      scrollBarContainer.style.display = 'grid';
+      scrollBarContainer.style.gridTemplate = `1fr / 1fr`;
+      container.appendChild(scrollBarContainer);
+    }
 
-    if (this._props.showScrollBar) {
+    if (this._props.showHorizontalScrollBar) {
+      // container for the horizontal scroll bar
+      const scrollBarContainer = document.createElement('div');
+      scrollBarContainer.className = `big-table-horizontal-scroll-bar-container`;
+      scrollBarContainer.style.display = 'grid';
+      scrollBarContainer.style.gridTemplate = `1fr / 1fr`;
       container.appendChild(scrollBarContainer);
     }
 
@@ -36,23 +47,47 @@ function BigTable(itemList, options) {
     container.addEventListener('wheel', (e) => {
       e.preventDefault();
 
-      // determine determine how many steps to count the scroll as
-      let scrollCount = 0;
-      if (e.deltaY > 0) {
-        let stepCounter = 0;
-        while (e.deltaY > stepCounter) {
-          stepCounter += 50;
-          scrollCount++;
-        }
-      } else {
-        let stepCounter = 0;
-        while (e.deltaY < stepCounter) {
-          stepCounter -= 50;
-          scrollCount--;
-        }
-      }
+      if (!e.shiftKey) {
+        // vertical scrolling
 
-      performScroll(scrollCount);
+        // determine determine how many steps to count the scroll as
+        let scrollCount = 0;
+        if (e.deltaY > 0) {
+          let stepCounter = 0;
+          while (e.deltaY > stepCounter) {
+            stepCounter += 50;
+            scrollCount++;
+          }
+        } else {
+          let stepCounter = 0;
+          while (e.deltaY < stepCounter) {
+            stepCounter -= 50;
+            scrollCount--;
+          }
+        }
+
+        performScroll(scrollCount);
+      } else {
+        // horizontal scrolling
+
+        // determine determine how many steps to count the scroll as
+        let scrollCount = 0;
+        if (e.deltaY > 0) {
+          let stepCounter = 0;
+          while (e.deltaY > stepCounter) {
+            stepCounter += 50;
+            scrollCount++;
+          }
+        } else {
+          let stepCounter = 0;
+          while (e.deltaY < stepCounter) {
+            stepCounter -= 50;
+            scrollCount--;
+          }
+        }
+
+        performHorizontalScroll(scrollCount * 0.01);
+      }
     });
 
     return container;
@@ -399,7 +434,7 @@ function BigTable(itemList, options) {
 
   const updateTableForNewList = () => {
     this.offset = 0;
-    if (this._props.showScrollBar) {
+    if (this._props.showVerticalScrollBar) {
       this._props.scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
       updateScrollHead();
     }
@@ -413,7 +448,12 @@ function BigTable(itemList, options) {
     }, true);
   };
 
-  /* SCROLLING STUFF */
+
+  /*
+   *  SCROLLING STUFF
+   */
+
+  /* VERTICAL SCROLLING */
 
   // returns the maximum the table offset can be without showing blank space
   const determineMaxOffset = () => {
@@ -445,14 +485,14 @@ function BigTable(itemList, options) {
 
   const createScrollBar = () => {
     const scrollBarTrack = document.createElement('div');
-    scrollBarTrack.className = `big-table-scroll-bar-track ` +
+    scrollBarTrack.className = `big-table-vertical-scroll-bar-track ` +
       `${this._props.scrollBarTrackClass || ''}`;
 
     this._props.scrollBarTrack = scrollBarTrack;
 
     const scrollBarHead = document.createElement('div');
     scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
-    scrollBarHead.className = `big-table-scroll-bar-head ` +
+    scrollBarHead.className = `big-table-vertical-scroll-bar-head ` +
       `${this._props.scrollBarHeadClass || ''}`;
     
      this._props.scrollBarHead = scrollBarHead;
@@ -513,7 +553,7 @@ function BigTable(itemList, options) {
       return;
     }
 
-    if (this._props.showScrollBar) updateScrollHead();
+    if (this._props.showVerticalScrollBar) updateScrollHead();
 
     draw();
     
@@ -527,6 +567,113 @@ function BigTable(itemList, options) {
         )
       }
     }));
+  };
+
+  /* HORIZONTAL SCROLLING */
+
+  const determineWidthOfAllColumns = () => {
+    const columnNodes = getColumnNodes();
+    const columnNodesLeftEdge = columnNodes[0].getBoundingClientRect().left;
+    const columnNodesRightEdge = columnNodes[columnNodes.length - 1]
+      .getBoundingClientRect().right;
+    const widthOfAllColumns = columnNodesRightEdge - columnNodesLeftEdge;
+    
+    return widthOfAllColumns;
+  };
+
+  const determineHorizontalScrollBarHeadSize = () => {
+    const widthOfAllColumns = determineWidthOfAllColumns();
+    const widthOfColumnContainer = this._props.columnContainer
+      .getBoundingClientRect().width;
+
+    const scrollBarHeadWidth = widthOfColumnContainer / widthOfAllColumns * 100;
+
+    return scrollBarHeadWidth > 100 ? 100 : scrollBarHeadWidth;
+  };
+
+  const determineMaxScrollBarLeft = () => {
+    return 100 - determineHorizontalScrollBarHeadSize();
+  };
+  
+  const updateHorizontalScrollHead = () => {
+    this._props.horizontalScrollBarHead.style.width =
+      determineHorizontalScrollBarHeadSize() + '%';
+
+    const maximumLeft = determineMaxScrollBarLeft();
+    const newLeft = this._props.horizontalScrollOffset * maximumLeft;
+    this._props.horizontalScrollBarHead.style.left = newLeft + '%';
+  };
+
+  // updates the table offset then re-draws table, firing the the btscroll event
+  const performHorizontalScroll = (steps) => {
+    // a "step" = 0.01 or 1% of the amount the scroll bar head can move
+    let desiredOffset = this._props.horizontalScrollOffset + steps;
+    
+    // round to 0 / 1 if past 1% or 99%
+    desiredOffset = desiredOffset < 0.01 ? 0 : desiredOffset;
+    desiredOffset = desiredOffset > 0.99 ? 1 : desiredOffset;
+
+    this._props.horizontalScrollOffset = desiredOffset;
+
+    this._props.columnContainer.style.left = 
+      -(this._props.horizontalScrollOffset * determineMaxScrollBarLeft()) + '%';
+
+    if (this._props.showHorizontalScrollBar) updateHorizontalScrollHead();
+  };
+
+  const createHorizontalScrollBar = () => {
+    const horizontalScrollBarTrack = document.createElement('div');
+    horizontalScrollBarTrack.className = `big-table-horizontal-scroll-bar-track ` +
+      `${this._props.horizontalScrollBarTrackClass || ''}`;
+
+    this._props.horizontalScrollBarTrack = horizontalScrollBarTrack;
+
+    const horizontalScrollBarHead = document.createElement('div');
+    horizontalScrollBarHead.style.width = determineHorizontalScrollBarHeadSize() + '%';
+    horizontalScrollBarHead.className = `big-table-horizontal-scroll-bar-head ` +
+      `${this._props.horizontalScrollBarHeadClass || ''}`;
+    
+     this._props.horizontalScrollBarHead = horizontalScrollBarHead;
+
+    const that = this;
+    horizontalScrollBarHead.addEventListener('mousedown', (e) => {
+      that._props.grabbingHorizontalScrollBar = true;
+      that._props.horizontalScrollBarGrabPreviousX = e.clientX;
+    });
+
+    window.addEventListener('mouseup', () => {
+      that._props.grabbingHorizontalScrollBar = false;
+      that._props.horizontalScrollBarGrabPreviousX = null;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!that._props.grabbingHorizontalScrollBar) return;
+
+      const trackRect = this._props.horizontalScrollBarTrack
+        .getBoundingClientRect();
+
+      if (e.clientX < trackRect.left) {
+        performHorizontalScroll(-this._props.horizontalScrollOffset);
+      } else if (e.clientX > trackRect.right) {
+        performHorizontalScroll(1 - this._props.horizontalScrollOffset);
+      } else {
+        // the empty space in the scroll bar track not taken up by the head
+        const totalPixelsOfMovement = determineMaxScrollBarLeft() / 100
+          * trackRect.width;
+
+        const moveAmountPixels = e.clientX -
+          that._props.horizontalScrollBarGrabPreviousX;
+        const moveAmountPercent = moveAmountPixels / totalPixelsOfMovement;
+  
+        performHorizontalScroll(moveAmountPercent);
+      }
+
+      that._props.horizontalScrollBarGrabPreviousX = e.clientX;
+      updateHorizontalScrollHead();
+    })
+
+    horizontalScrollBarTrack.appendChild(horizontalScrollBarHead);
+    this._props.horizontalScrollBarContainer.appendChild(horizontalScrollBarTrack);
   };
 
   /**********************************
@@ -1005,6 +1152,8 @@ function BigTable(itemList, options) {
   this._props.cellClass = options.cellClass || null;
   this._props.scrollBarTrackClass = options.scrollBarTrackClass || null;
   this._props.scrollBarHeadClass = options.scrollBarHeadClass || null;
+  this._props.horizontalScrollBarTrackClass = options.horizontalScrollBarTrackClass || null;
+  this._props.horizontalScrollBarHeadClass = options.horizontalScrollBarHeadClass || null;
 
   // optional parameters supplied by user
   this._props.themeName = options.theme || 'btdefault';
@@ -1012,7 +1161,8 @@ function BigTable(itemList, options) {
   this._props.valueParseFunctions = options.valueParseFunctions || null;
   this._props.headerListeners = options.headerListeners || null;
   this._props.cellListeners = options.cellListeners || null;
-  this._props.showScrollBar = options.showScrollBar || false;
+  this._props.showVerticalScrollBar = options.showVerticalScrollBar || false;
+  this._props.showHorizontalScrollBar = options.showHorizontalScrollBar || false;
   this._props.enableSelection = options.enableSelection || false;
   this._props.enableColumnResizing = options.enableColumnResizing || false;
   this._props.columnWidths = options.columnWidths || null;
@@ -1083,11 +1233,24 @@ function BigTable(itemList, options) {
   this.offset = 0;
   this._props.rowCount = 20;
 
-  if (this._props.showScrollBar) {
+  this._props.horizontalScrollOffset = 0;
+
+  if (this._props.showVerticalScrollBar) {
     this._props.scrollBarContainer =
-      this.node.getElementsByClassName('big-table-scroll-bar-container')[0];
+      this.node.getElementsByClassName('big-table-vertical-scroll-bar-container')[0];
 
     createScrollBar();
+  }
+
+  if (this._props.showHorizontalScrollBar) {
+    this._props.horizontalScrollBarContainer =
+      this.node.getElementsByClassName('big-table-horizontal-scroll-bar-container')[0];
+
+    // creating the horizontal scroll relies on the columns existing
+    // so we have to wait until after the table gets drawn
+    setTimeout(() => {
+      createHorizontalScrollBar();
+    }, 0);
   }
 
   // row selection properties
@@ -1134,6 +1297,8 @@ function BigTable(itemList, options) {
       updateColumnGridTemplate(columnChildIndex, `${newColumnPercentage*100}%`);
 
       this._props.previousResizeX = e.clientX;
+
+      updateHorizontalScrollHead();
     });
 
     window.addEventListener('mouseup', () => {

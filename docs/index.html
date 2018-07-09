@@ -42,6 +42,15 @@
       border-radius:5px;
       box-shadow:0 0 2px black;
     }
+
+    .horizontal-scroll-bar-track-class {
+      background:rgb(165, 165, 165);
+    }
+    .horizontal-scroll-bar-head-class {
+      background:rgb(207, 207, 207);
+      border-radius:5px;
+      box-shadow:0 0 2px black;
+    }
   </style>
 </head>
 <body>
@@ -128,7 +137,10 @@
     cellClass: 'cell-class',
     scrollBarTrackClass: 'scroll-bar-track-class',
     scrollBarHeadClass: 'scroll-bar-head-class',
-    showScrollBar: true,
+    horizontalScrollBarTrackClass: 'horizontal-scroll-bar-track-class',
+    horizontalScrollBarHeadClass: 'horizontal-scroll-bar-head-class',
+    showVerticalScrollBar: true,
+    showHorizontalScrollBar: true,
     enableSelection: true,
     enableColumnResizing: true,
     propertyMode: 'all',
