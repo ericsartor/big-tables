@@ -800,14 +800,13 @@ function BigTable(itemList, options) {
 
   // updates the table offset then re-draws table, firing the the btscroll event
   const performScroll = (steps) => {
-    const desiredOffset = this.offset + steps;
-    const notTooHigh = desiredOffset <= determineMaxOffset();
+    let desiredOffset = this.offset + steps;
+    const maxOffset = determineMaxOffset();
     
-    if (notTooHigh && desiredOffset >= 0) {
-      this.offset = desiredOffset;
-    } else {
-      return;
-    }
+    desiredOffset = desiredOffset < 0 ? 0 : desiredOffset;
+    desiredOffset = desiredOffset > maxOffset ? maxOffset : desiredOffset
+
+    this.offset = desiredOffset;
 
     if (this._props.showVerticalScrollBar) updateScrollHead();
 
