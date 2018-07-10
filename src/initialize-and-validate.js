@@ -55,6 +55,7 @@ return function(itemList, options) {
     'showHorizontalScrollBar',
     'enableSelection',
     'enableColumnResizing',
+    'enableMoveableColumns',
     'propertyMode',
     'properties',
     'headerMap',

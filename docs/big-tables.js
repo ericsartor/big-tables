@@ -25,6 +25,7 @@ const requiredStylesContent = `
     user-select:none;
     overflow:hidden;
     white-space:nowrap;
+    position:relative;
   }
 
   .big-table-value-cell {
@@ -368,7 +369,7 @@ function BigTable(itemList, options) {
     headerDiv.textContent = headerName;
     headerDiv.style.display = 'grid';
 
-    if (this._props.enableColumnResizing) {
+    if (this._props.enableColumnResizing || this._props.enableMoveableColumns) {
       // returns false if mouse is not in a resize hitbox, or
       // 'left'/'right' if it is (signifying which side of the header)
       const isMouseInResizeHitbox = (headerDiv, clientX) => {
@@ -397,43 +398,65 @@ function BigTable(itemList, options) {
           return false;
         }
       };
+      
+      if (this._props.enableColumnResizing) {
+        // change the cursor to a resize cursor if inside a resize hitbox
+        headerDiv.addEventListener('mousemove', (e) => {
+          const whichResizeHitbox = isMouseInResizeHitbox(headerDiv, e.clientX);
 
-      // change the cursor to a resize cursor if inside a resize hitbox
-      headerDiv.addEventListener('mousemove', (e) => {
-        const whichResizeHitbox = isMouseInResizeHitbox(headerDiv, e.clientX);
+          if (whichResizeHitbox && headerDiv.style.cursor !== 'col-resize') {
+            headerDiv.style.cursor = 'col-resize';
+          } else if (!whichResizeHitbox && headerDiv.style.cursor) {
+            headerDiv.style.cursor = null;
+          }
+        });
 
-        if (whichResizeHitbox && headerDiv.style.cursor !== 'col-resize') {
-          headerDiv.style.cursor = 'col-resize';
-        } else if (!whichResizeHitbox && headerDiv.style.cursor) {
-          headerDiv.style.cursor = null;
-        }
-      });
+        // reset the cursor to default if it was set to resize
+        headerDiv.addEventListener('mouseout', () => {
+          if (headerDiv.style.cursor) {
+            headerDiv.style.cursor = null;
+          }
+        });
 
-      // reset the cursor to default if it was set to resize
-      headerDiv.addEventListener('mouseout', () => {
-        if (headerDiv.style.cursor) {
-          headerDiv.style.cursor = null;
-        }
-      });
+        // if user clicks on a resize hitbox, enable resizing and set the column
+        // div to be resized
+        headerDiv.addEventListener('mousedown', (e) => {
+          const whichResizeHitbox = isMouseInResizeHitbox(headerDiv, e.clientX);
 
-      // if user clicks on a resize hitbox, enable resizing and set the column
-      // div to be resized
-      headerDiv.addEventListener('mousedown', (e) => {
-        const whichResizeHitbox = isMouseInResizeHitbox(headerDiv, e.clientX);
+          if (!whichResizeHitbox) return;
 
-        if (!whichResizeHitbox) return;
+          if (whichResizeHitbox === 'left') {
+            // if grabbing the left hitbox, resize the element to the left
+            this._props.resizeColumn = headerDiv.parentNode.previousElementSibling;
+          } else if (whichResizeHitbox === 'right') {
+            // if grabbing right hitbox, resize current element
+            this._props.resizeColumn = headerDiv.parentNode;
+          }
 
-        if (whichResizeHitbox === 'left') {
-          // if grabbing the left hitbox, resize the element to the left
-          this._props.resizeColumn = headerDiv.parentNode.previousElementSibling;
-        } else if (whichResizeHitbox === 'right') {
-          // if grabbing right hitbox, resize current element
-          this._props.resizeColumn = headerDiv.parentNode;
-        }
+          this._props.resizing = true;
+          this._props.previousResizeX = e.clientX;
+        });
+      }
 
-        this._props.resizing = true;
-        this._props.previousResizeX = e.clientX;
-      });
+      if (this._props.enableMoveableColumns) {
+        headerDiv.addEventListener('mousedown', (e) => {
+          // stops the header from being dragged if user is trying to resize
+          if (
+            this._props.enableColumnResizing &&
+            isMouseInResizeHitbox(headerDiv, e.clientX)
+          ) {
+            return;
+          }
+
+          this._props.isDraggingColumn = true;
+          this._props.currentDragColumnHeader = headerDiv;
+
+          // track start of drag so we know where to move the header to
+          // during each move
+          this._props.columnDragXStart = e.clientX;
+          this._props.columnDragYStart = e.clientY;
+        });
+      }
     }
 
     return headerDiv;
@@ -558,7 +581,7 @@ function BigTable(itemList, options) {
   };
 
   const getColumnNodes = () => {
-    return this._props.columnContainer.children;
+    return Array.from(this._props.columnContainer.children);
   };
 
   const getValueCells = () => {
@@ -567,6 +590,10 @@ function BigTable(itemList, options) {
 
   const getHeaderTitle = (propertyName) => {
     return this.headerMap ? this.headerMap[propertyName] : propertyName;
+  };
+
+  const getColumnContainerGridTemplateArray = () => {
+    return this._props.columnContainer.style.gridTemplateColumns.split(' ');
   };
 
   /* value update functions */
@@ -1419,6 +1446,7 @@ function BigTable(itemList, options) {
   this._props.showHorizontalScrollBar = options.showHorizontalScrollBar || false;
   this._props.enableSelection = options.enableSelection || false;
   this._props.enableColumnResizing = options.enableColumnResizing || false;
+  this._props.enableMoveableColumns = options.enableMoveableColumns || false;
   this._props.columnWidths = options.columnWidths || null;
 
   // optional parameters the user may need access to
@@ -1533,6 +1561,7 @@ function BigTable(itemList, options) {
   requiredStyles
 
   // enable column resizing
+
   if (this._props.enableColumnResizing) {
     const resetResizeProperties = () => {
       this._props.resizing = false;
@@ -1565,6 +1594,200 @@ function BigTable(itemList, options) {
 
     window.addEventListener('mouseup', () => {
       resetResizeProperties();
+    });
+  }
+
+  // moveable columns properties
+
+  if (this._props.enableMoveableColumns) {
+    const resetColumnMoveProperties =() => {
+      // put the drag header back in place
+      if (this._props.currentDragColumnHeader) {
+        this._props.currentDragColumnHeader.style.left = null;
+        this._props.currentDragColumnHeader.style.top = null;
+        this._props.currentDragColumnHeader.style.zIndex = null;
+        this._props.currentDragColumnHeader.style.opacity = null;
+      }
+
+      this._props.isDraggingColumn = false;
+      this._props.currentDragColumnHeader = null;
+      this._props.columnDragXStart = null;
+      this._props.columnDragYStart = null;
+    };
+
+    const resetOpacityForColumn = function() {
+      this.style.opacity = null;
+      this.removeEventListener('mouseout', resetOpacityForColumn);
+    };
+
+    // takes a target from a mouse move event during a column drag and
+    // goes up it's parent tree to find the column node
+    const findColumnFromEvent = (e) => {
+      let eventTarget = e.target;
+
+      if (eventTarget === this._props.currentDragColumnHeader) {
+        // if the mouse is currently over the header row, then due to the
+        // z-index of the drag header during a drag, the event target will be 
+        // the drag header every time. In this case, we need to figure out if a 
+        // column node is underneath it
+
+        const columnNodes = getColumnNodes();
+
+        // because we're on the header row, our "mouseout" event removers won't
+        // work (because the drag header steals the event), so we have to run
+        //  the reset on all the columns just in case they were highlighted
+        columnNodes.forEach((columnNode) => {
+          columnNode.style.opacity = null;
+        });
+        
+        // attempt to find a column underneath the event location
+        columnNodes.some((columnNode) => {
+          const columnRect = columnNode.getBoundingClientRect();
+
+          if (!(e.clientX > columnRect.left)) return;
+          if (!(e.clientX < columnRect.right)) return;
+          if (!(e.clientY > columnRect.top)) return;
+          if (!(e.clientY < columnRect.bottom)) return;
+
+          // if we got past the if statements, the event happened over top of
+          // the current column node in the loop
+
+          eventTarget = columnNode;
+
+          return true;
+        });
+
+        // if we didn't find a column node, explicitly set the target to null
+        if (eventTarget === this._props.currentDragColumnHeader) {
+          eventTarget = null;
+        }
+      } else {
+        // if the mouse is not over the header row, the just check the parent
+        // tree for a column node
+
+        while (!eventTarget.classList.contains('big-table-column')) {
+          eventTarget = eventTarget.parentNode;
+  
+          // if we ever reach the end of the parent tree, break out
+          if (!eventTarget) break;
+        }
+
+        // if we didn't find a column node, explicitly set the target to null
+        if (!eventTarget) {
+          eventTarget = null;
+        }
+      }
+
+      // this will either be a column node, or null
+      return eventTarget;
+    };
+
+    const determineReleaseSide = (eventClientX, targetColumn) => {
+      const columnRect = targetColumn.getBoundingClientRect();
+
+      const columnClientMiddle = columnRect.left + (columnRect.width / 2);
+
+      return eventClientX < columnClientMiddle ? 'left' : 'right';
+    };
+
+    // initialize the properties
+    resetColumnMoveProperties();
+
+    window.addEventListener('mousemove', (e) => {
+      if (!this._props.isDraggingColumn) return;
+
+      // perform the header move
+
+      const newLeft = e.clientX - this._props.columnDragXStart;
+      this._props.currentDragColumnHeader.style.left = `${newLeft}px`;
+
+      this._props.currentDragColumnHeader.style.zIndex = 1;
+
+      // alter the opacity of the target column
+
+      const targetColumn = findColumnFromEvent(e);
+      
+      // set the target column's opacity if it hasn't already been set
+      if (targetColumn) {
+        if (!targetColumn.style.opacity) {
+          targetColumn.style.opacity = 0.5;
+          targetColumn.addEventListener('mouseout', resetOpacityForColumn);
+        }
+      }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (!this._props.isDraggingColumn) return;
+
+      const targetColumn = findColumnFromEvent(e);
+      const mouseReleaseSideOfColumn = determineReleaseSide(
+        e.clientX, targetColumn
+      );
+
+      const dragColumn = this._props.currentDragColumnHeader.parentNode;
+
+      const columnNodes = getColumnNodes();
+      const targetColumnIndex = columnNodes.indexOf(targetColumn);
+      const dragColumnIndex = columnNodes.indexOf(dragColumn);
+
+      // determine what the new index of the column to place will be
+      // based on where the mouse release happened on the target column
+      // and which side of the drag column the target column is on
+      const columnToInsertBefore = (() => {
+        if (targetColumnIndex < dragColumnIndex) {
+          if (mouseReleaseSideOfColumn === 'left') {
+            return targetColumn;
+          } else if (mouseReleaseSideOfColumn === 'right') {
+            return targetColumn.nextElementSibling;
+          }
+        } else {
+          if (mouseReleaseSideOfColumn === 'left') {
+            return targetColumn;
+          } else if (mouseReleaseSideOfColumn === 'right') {
+            return targetColumn.nextElementSibling;
+          }
+        }
+      })();
+
+      // a move is only required if we've determined we aren't trying to insert
+      // the drag column before itself
+      if (columnToInsertBefore !== dragColumn) {
+        
+        dragColumn.remove();
+        
+        // columnToInsertBefore will be undefined if trying to place
+        // the drag column at the end
+        if (columnToInsertBefore === undefined) {
+          this._props.columnContainer.appendChild(dragColumn);
+        } else {
+          this._props.columnContainer.insertBefore(
+            dragColumn, columnToInsertBefore
+          );
+        }
+        
+        // here, i'm taking the old grid template as an array, and moving the 
+        // drag columns template value to it's new location and updating the
+        // grid template
+
+        const columnContainerGridTemplate = getColumnContainerGridTemplateArray();
+
+        const dragColumnTemplateValue = 
+          columnContainerGridTemplate.splice(dragColumnIndex, 1);
+        
+        const newDragColumnIndex = getColumnNodes().indexOf(dragColumn);
+
+        columnContainerGridTemplate.splice(
+          newDragColumnIndex,
+          0,
+          dragColumnTemplateValue
+        );
+
+        const newGridTemplate = columnContainerGridTemplate.join(' ');
+
+        this._props.columnContainer.style.gridTemplateColumns = newGridTemplate;
+      }
+
+      resetColumnMoveProperties();
     });
   }
 }
@@ -1625,6 +1848,7 @@ return function(itemList, options) {
     'showHorizontalScrollBar',
     'enableSelection',
     'enableColumnResizing',
+    'enableMoveableColumns',
     'propertyMode',
     'properties',
     'headerMap',

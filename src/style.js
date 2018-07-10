@@ -25,6 +25,7 @@ const requiredStylesContent = `
     user-select:none;
     overflow:hidden;
     white-space:nowrap;
+    position:relative;
   }
 
   .big-table-value-cell {
