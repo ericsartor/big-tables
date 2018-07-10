@@ -134,5 +134,11 @@ const Sorting = {
     })(sortedObjsArr);
 
     return sortedObjs;
+  },
+
+  javascript(arr, sortHierarchy, direction) {
+    return arr.sort((a, b) => {
+      return Sorting.compare(a, b, 'less', sortHierarchy, direction) ? 1 : -1;
+    });
   }
 };

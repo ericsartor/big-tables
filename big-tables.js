@@ -252,6 +252,12 @@ const Sorting = {
     })(sortedObjsArr);
 
     return sortedObjs;
+  },
+
+  javascript(arr, sortHierarchy, direction) {
+    return arr.sort((a, b) => {
+      return Sorting.compare(a, b, 'less', sortHierarchy, direction) ? 1 : -1;
+    });
   }
 };
 function BigTable(itemList, options) {
@@ -1337,22 +1343,15 @@ function BigTable(itemList, options) {
           sortHierarchy,
           direction
         );
-      } else if (this._props.currentSortAlgorithm === 'btsort') {
+      } else if (this._props.currentSortAlgorithm === 'javascript') {
         // create a list copy for sorting in place
         const currentListCopy = [].concat(getCurrentObjectList());
 
-        this._props.sortedList = Sorting.quicksort(
+        this._props.sortedList = Sorting.javascript(
           currentListCopy,
           sortHierarchy,
           direction
         );
-      } else {
-        // create a list copy for sorting in place
-        const currentListCopy = [].concat(getCurrentObjectList());
-
-        this._props.sortedList = currentListCopy.sort((a, b) => {
-          return Sorting.compare(a, b, 'less', sortHierarchy, direction) ? 1 : -1;
-        });
       }
     }
 
