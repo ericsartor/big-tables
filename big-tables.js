@@ -1282,6 +1282,7 @@ function BigTable(itemList, options) {
       propertyName: string - the item property to sort by, cannot be
         supplied if columnName is also supplied
       direction: string - up, down, asc, desc
+      algorithm: string - name of the sorting algorithm to use
     */
 
     // assert that columnName or propertyName were provided, not both or neither
@@ -1323,6 +1324,13 @@ function BigTable(itemList, options) {
         ` accepted values: ` + options.direction);
     }
 
+    // assert that algorithm is one of the accepted values
+    if (options.algorithm && !Sorting.algorithms.includes(options.algorithm)) {
+      throw Utils.generateError(`The sorting algorithm provided is not one of` +
+        ` the built in algorithms: "${options.algorithm}". The built in`
+        ` algorithms are: ${Sorting.algorithms.join(', ')}`);
+    }
+
     // normalize sort identifier to a property name
     const sortPropertyName = options.propertyName || 
       this.propertyMap[options.columnName];
@@ -1347,38 +1355,54 @@ function BigTable(itemList, options) {
       }
     })();
 
-    // wipe the sorted list before sorting when we're doing an update after a filter
-    // so that the current list is the filtered list
+    // wipe the sorted list before sorting when we're doing an update after a 
+    // filter so that the current list is the filtered list
     if (performingSortUpdate) {
       this._props.sortedList = null;
     }
     
     const sortBenchmarkStartTime = performance.now();
 
-    const resortingCurrentSortColumn = this.currentSortProperty === sortHierarchy[0];
-    const reversingSortDirection = this.currentSortDirection !== direction;
+    const resortingCurrentSortColumn = this.currentSortProperty ===
+      sortHierarchy[0];
+    const reversingSortDirection = this.currentSortDirection !== null &&
+      this.currentSortDirection !== direction;
 
-    if (resortingCurrentSortColumn && reversingSortDirection && !performingSortUpdate) {
+    let algorithmToUse;
+
+    if (
+      resortingCurrentSortColumn &&
+      reversingSortDirection &&
+      !performingSortUpdate
+    ) {
       // if resorting current column and reversing it, simply do a reverse
+      algorithmToUse = 'reverse';
       this._props.sortedList.reverse();
     } else if (!resortingCurrentSortColumn || performingSortUpdate) {
       // if sorting a new column, do a new sort
 
-      if (this._props.currentSortAlgorithm === 'btsort') {
-        this._props.sortedList = Sorting.btsort(
-          getCurrentObjectList(),
-          sortHierarchy,
-          direction
-        );
-      } else if (this._props.currentSortAlgorithm === 'javascript') {
-        // create a list copy for sorting in place
-        const currentListCopy = [].concat(getCurrentObjectList());
+      algorithmToUse = options.algorithm ||
+        this._props.fastestBenchmarkMap[sortPropertyName].algorithmName ||
+        'btsort';
 
-        this._props.sortedList = Sorting.javascript(
-          currentListCopy,
-          sortHierarchy,
-          direction
-        );
+      switch (algorithmToUse) {
+        case 'btsort':
+          this._props.sortedList = Sorting.btsort(
+            getCurrentObjectList(),
+            sortHierarchy,
+            direction
+          );
+          break;  
+        case 'javascript':
+          // create a list copy for sorting in place
+          const currentListCopy = [].concat(getCurrentObjectList());
+
+          this._props.sortedList = Sorting.javascript(
+            currentListCopy,
+            sortHierarchy,
+            direction
+          );
+          break;
       }
     }
 
@@ -1394,7 +1418,7 @@ function BigTable(itemList, options) {
       detail: {
         sortHierarchy: sortHierarchy,
         sortBenchmark: sortBenchmarkTotalTime,
-        algorithm: this._props.currentSortAlgorithm
+        algorithm: algorithmToUse
       }
     }));
   };
@@ -1442,12 +1466,15 @@ function BigTable(itemList, options) {
   this._props.valueParseFunctions = options.valueParseFunctions || null;
   this._props.headerListeners = options.headerListeners || null;
   this._props.cellListeners = options.cellListeners || null;
+  this._props.columnWidths = options.columnWidths || null;
+
+  // flag options supplied by user
   this._props.showVerticalScrollBar = options.showVerticalScrollBar || false;
   this._props.showHorizontalScrollBar = options.showHorizontalScrollBar || false;
   this._props.enableSelection = options.enableSelection || false;
   this._props.enableColumnResizing = options.enableColumnResizing || false;
   this._props.enableMoveableColumns = options.enableMoveableColumns || false;
-  this._props.columnWidths = options.columnWidths || null;
+  this._props.optimizeSorting = options.optimizeSorting || false;
 
   // optional parameters the user may need access to
   this.headerMap = options.headerMap || null;
@@ -1502,7 +1529,6 @@ function BigTable(itemList, options) {
 
   // sorting properties
 
-  this._props.currentSortAlgorithm = 'javascript';
   this.currentSortProperty = null;
   this.currentSortDirection = null;
 
@@ -1734,7 +1760,11 @@ function BigTable(itemList, options) {
       // based on where the mouse release happened on the target column
       // and which side of the drag column the target column is on
       const columnToInsertBefore = (() => {
-        if (targetColumnIndex < dragColumnIndex) {
+        if (targetColumnIndex === dragColumnIndex) {
+          // if both indexes are the same (the column is behing dropped on 
+          // itself), a move is not necessary
+          return null;
+        } else if (targetColumnIndex < dragColumnIndex) {
           if (mouseReleaseSideOfColumn === 'left') {
             return targetColumn;
           } else if (mouseReleaseSideOfColumn === 'right') {
@@ -1751,7 +1781,7 @@ function BigTable(itemList, options) {
 
       // a move is only required if we've determined we aren't trying to insert
       // the drag column before itself
-      if (columnToInsertBefore !== dragColumn) {
+      if (columnToInsertBefore !== dragColumn && columnToInsertBefore !== null) {
         
         dragColumn.remove();
         
@@ -1789,6 +1819,47 @@ function BigTable(itemList, options) {
 
       resetColumnMoveProperties();
     });
+  }
+
+  // sorting algorithm optimizer
+
+  if (this._props.optimizeSorting) {
+    const fastestBenchmarkMap = {};
+
+    this.itemProperties.forEach((propertyName) => {
+      // create an object for this property that will hold results for each
+      // algorithm benchmark
+      fastestBenchmarkMap[propertyName] = {};
+
+      // test each property with each sorting algorithm and log benchmark results
+      Sorting.algorithms.forEach((algorithmName) => {
+        const benchmarkStart = performance.now();
+        this.sort({propertyName, algorithm: algorithmName});
+        const benchmarkEnd = performance.now();
+        const elapsedTime = benchmarkEnd - benchmarkStart;
+
+        // determine if this algorithm was faster than the current fastest
+        // algorithm for this property
+        const isFaster = (() => {
+          if (fastestBenchmarkMap[propertyName].algorithmName !== undefined) {
+            return fastestBenchmarkMap[propertyName].elapsedTime > elapsedTime;
+          } else {
+            return true;
+          }
+        })();
+
+        // update the algorithm for this property if there isn't one or this
+        // one was faster
+        if (isFaster) {
+          fastestBenchmarkMap[propertyName].elapsedTime = elapsedTime;
+          fastestBenchmarkMap[propertyName].algorithmName = algorithmName;
+        }
+
+        this.clearSort();
+      });
+    });
+
+    this._props.fastestBenchmarkMap = fastestBenchmarkMap;
   }
 }
 return function(itemList, options) {
@@ -1849,6 +1920,7 @@ return function(itemList, options) {
     'enableSelection',
     'enableColumnResizing',
     'enableMoveableColumns',
+    'optimizeSorting',
     'propertyMode',
     'properties',
     'headerMap',
@@ -1856,7 +1928,7 @@ return function(itemList, options) {
     'sortOrderMap',
     'headerListeners',
     'cellListeners',
-    'valueParseFunctions'
+    'valueParseFunctions',
   ];
   for (const prop in options) {
     if (!validOptions.includes(prop)) {

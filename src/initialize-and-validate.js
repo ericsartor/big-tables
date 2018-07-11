@@ -56,6 +56,7 @@ return function(itemList, options) {
     'enableSelection',
     'enableColumnResizing',
     'enableMoveableColumns',
+    'optimizeSorting',
     'propertyMode',
     'properties',
     'headerMap',
@@ -63,7 +64,7 @@ return function(itemList, options) {
     'sortOrderMap',
     'headerListeners',
     'cellListeners',
-    'valueParseFunctions'
+    'valueParseFunctions',
   ];
   for (const prop in options) {
     if (!validOptions.includes(prop)) {
