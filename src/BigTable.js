@@ -1,16 +1,21 @@
 function BigTable(itemList, options) {
   /* PRIVATE CONSTANTS */
 
+  // this is the value printed to a value cell when a property doesn't exist
+  // on the object being drawn
   const NO_VALUE = '[no value]';
 
   /* PRIVATE METHODS */
 
-  const createContainer = () => {
+  // creates the main container, the column container and (if enabled by user)
+  // the scroll bar containers for vertical and horizontal scroll bars
+  const createTableStructure = () => {
     // whole table container
-    const container = document.createElement('div');
-    container.className = `big-table-container ${this._props.containerClass || ''}`;
-    container.style.display = 'grid';
-    container.style.gridTemplate = `1fr` +
+    const tableContainer = document.createElement('div');
+    tableContainer.className = `big-table-container` +
+      ` ${this._props.containerClass || ''}`;
+    tableContainer.style.display = 'grid';
+    tableContainer.style.gridTemplate = `1fr` +
       `${this._props.showHorizontalScrollBar ? ` 30px` : ''}` +
       ` / 1fr` +
       `${this._props.showVerticalScrollBar ? ` 30px` : ''}`;
@@ -23,7 +28,7 @@ function BigTable(itemList, options) {
       `${this._props.gridTemplate.join(' ')}`;
     columnContainer.style.position = 'relative';
 
-    container.appendChild(columnContainer);
+    tableContainer.appendChild(columnContainer);
     
     if (this._props.showVerticalScrollBar) {
       // container for the vertical scroll bar
@@ -31,7 +36,7 @@ function BigTable(itemList, options) {
       scrollBarContainer.className = `big-table-vertical-scroll-bar-container`;
       scrollBarContainer.style.display = 'grid';
       scrollBarContainer.style.gridTemplate = `1fr / 1fr`;
-      container.appendChild(scrollBarContainer);
+      tableContainer.appendChild(scrollBarContainer);
     }
 
     if (this._props.showHorizontalScrollBar) {
@@ -40,59 +45,17 @@ function BigTable(itemList, options) {
       scrollBarContainer.className = `big-table-horizontal-scroll-bar-container`;
       scrollBarContainer.style.display = 'grid';
       scrollBarContainer.style.gridTemplate = `1fr / 1fr`;
-      container.appendChild(scrollBarContainer);
+      tableContainer.appendChild(scrollBarContainer);
     }
 
-    // listener for table scrolling
-    container.addEventListener('wheel', (e) => {
-      e.preventDefault();
-
-      if (!e.shiftKey) {
-        // vertical scrolling
-
-        // determine determine how many steps to count the scroll as
-        let scrollCount = 0;
-        if (e.deltaY > 0) {
-          let stepCounter = 0;
-          while (e.deltaY > stepCounter) {
-            stepCounter += 50;
-            scrollCount++;
-          }
-        } else {
-          let stepCounter = 0;
-          while (e.deltaY < stepCounter) {
-            stepCounter -= 50;
-            scrollCount--;
-          }
-        }
-
-        performScroll(scrollCount);
-      } else {
-        // horizontal scrolling
-
-        // determine determine how many steps to count the scroll as
-        let scrollCount = 0;
-        if (e.deltaY > 0) {
-          let stepCounter = 0;
-          while (e.deltaY > stepCounter) {
-            stepCounter += 50;
-            scrollCount++;
-          }
-        } else {
-          let stepCounter = 0;
-          while (e.deltaY < stepCounter) {
-            stepCounter -= 50;
-            scrollCount--;
-          }
-        }
-
-        performHorizontalScroll(scrollCount * 0.01);
-      }
-    });
-
-    return container;
+    return {
+      tableContainer,
+      columnContainer
+    };
   };
 
+  // create the vertical column that will hold the value cells for a given
+  // item property and the column header cell
   const createColumn = () => {
     const columnDiv = document.createElement('div');
     columnDiv.className = `big-table-column ${this._props.columnClass || ''}`;
@@ -100,6 +63,9 @@ function BigTable(itemList, options) {
     return columnDiv;
   };
 
+  // create the first cell of each column that acts as the header or title for
+  // that column, which has listeners attached to it for resizing the columns
+  // and moving the columns
   const createHeader = (headerName) => {
     const headerDiv = document.createElement('div');
     headerDiv.className = `big-table-header ${this._props.headerClass || ''}`;
@@ -108,7 +74,9 @@ function BigTable(itemList, options) {
 
     if (this._props.enableColumnResizing || this._props.enableMoveableColumns) {
       // returns false if mouse is not in a resize hitbox, or
-      // 'left'/'right' if it is (signifying which side of the header)
+      // 'left'/'right' if it is (signifying which side of the header).
+      // this method is used in both column resizing and column moving logic,
+      // so it is included in this main lexical scope
       const isMouseInResizeHitbox = (headerDiv, clientX) => {
         const headerRect = headerDiv.getBoundingClientRect();
         const leftEdge = Math.floor(headerRect.left);
@@ -136,6 +104,7 @@ function BigTable(itemList, options) {
         }
       };
       
+      // add listeners for enabling column resizing
       if (this._props.enableColumnResizing) {
         // change the cursor to a resize cursor if inside a resize hitbox
         headerDiv.addEventListener('mousemove', (e) => {
@@ -175,6 +144,7 @@ function BigTable(itemList, options) {
         });
       }
 
+      // add listeners for enabling column movement
       if (this._props.enableMoveableColumns) {
         headerDiv.addEventListener('mousedown', (e) => {
           // stops the header from being dragged if user is trying to resize
@@ -199,6 +169,8 @@ function BigTable(itemList, options) {
     return headerDiv;
   };
 
+  // create a cell that will be added to a column, displaying the value for
+  // the property the column is for for the object being drawn 
   const createValueCell = (value, rowNumber, propertyName, rowObject) => {
     value = (() => {
       if (!this._props.valueParseFunctions) {
@@ -259,7 +231,9 @@ function BigTable(itemList, options) {
     return valueCellDiv;
   };
 
-  /* row selection functions */
+  /* row selection functions and variables */
+
+  this.selectedItems = [];
 
   const clearSelection = () => {
     while (this.selectedItems.length !== 0) {
@@ -310,31 +284,55 @@ function BigTable(itemList, options) {
       }
     }
   };
+  
+  // removes the row selection if anything that isn't a child of the table is
+  // clicked
+  window.addEventListener('click', (e) => {
+    let target = e.target;
+
+    while (target) {
+      if (target === this.node) {
+        return;
+      }
+
+      target = taget.parentNode;
+    }
+
+    clearSelection()
+    draw();
+  });
 
   /* value request functions */
 
+  // returns the list that the user is actually looking at at any given time
   const getCurrentObjectList = () => {
-    return this._props.sortedList || this._props.filteredList || this.objects;
+    return this._props.sortedList || this._props.filteredList || this.masterList;
   };
 
+  // get the column nodes in their current order in the table
   const getColumnNodes = () => {
     return Array.from(this._props.columnContainer.children);
   };
 
+  // gets all current value cells in no particular order
   const getValueCells = () => {
     return Array.from(this.node.getElementsByClassName('big-table-value-cell'));
   };
 
+  // gets the header title for a column from a property name
   const getHeaderTitle = (propertyName) => {
     return this.headerMap ? this.headerMap[propertyName] : propertyName;
   };
 
+  // gets the current column grid template as an array for use with column
+  // movement logic
   const getColumnContainerGridTemplateArray = () => {
     return this._props.columnContainer.style.gridTemplateColumns.split(' ');
   };
 
   /* value update functions */
 
+  // easily update a specific column grid template value by index
   const updateColumnGridTemplate = (i, value) => {
     const gridTemplateString = this._props.columnContainer.style
       .gridTemplateColumns;
@@ -344,10 +342,10 @@ function BigTable(itemList, options) {
     this._props.columnContainer.style.gridTemplateColumns = gridTemplateArr.join(' ');
   };
 
-  /* listener application functions */
+  /* functions for applying user supplied event listeners to nodes */
 
   // check to see if any listeners were provided for the given type of node 
-  // (headers, cells, etc) and the given column
+  // (headers, cells, etc) and the given property/column
   const findListenerObjectsFor = (listenerType, propertyName) => {
     // figure out if a listener was provided for this type (header/value cell)
     const listenersFromPropertyName =
@@ -387,6 +385,9 @@ function BigTable(itemList, options) {
     }
   };
 
+  // creates the columns and column headers if they aren't present, then
+  // dletes all current value cells and creates new value cells based on the
+  // current offset and current item list
   const draw = () => {
     // create the columns and headers if they don't already exist
     if (!this._props.columnDivs) {
@@ -458,6 +459,8 @@ function BigTable(itemList, options) {
     }
   };
 
+  // used when the table contents need to change other than when scrolling,
+  // such as when filtering, sorting, or clearing either of those
   const updateTableForNewList = () => {
     this.offset = 0;
     if (this._props.showVerticalScrollBar) {
@@ -467,6 +470,8 @@ function BigTable(itemList, options) {
     draw();
   };
 
+  // used to maintain the current sort after the table list gets changed, such
+  // as after a filter or a clear filter
   const updateSort = () => {
     this.sort({
       propertyName: this.currentSortProperty,
@@ -475,9 +480,7 @@ function BigTable(itemList, options) {
   };
 
 
-  /*
-   *  SCROLLING STUFF
-   */
+  /* SCROLLING STUFF */
 
   /* VERTICAL SCROLLING */
 
@@ -486,10 +489,14 @@ function BigTable(itemList, options) {
     return getCurrentObjectList().length - this._props.rowCount;
   };
 
+  // returns the maximum "top" value in percentage that the scroll bar head
+  // can be set to without going past the bottom of the scroll bar track
+  // based on the head's current height (which is always in percentage)
   const determineMaxScrollBarTop = () => {
-    return 100 - parseFloat(this._props.scrollBarHead.style.height);;
+    return 100 - parseFloat(this._props.scrollBarHead.style.height);
   };
 
+  // algorithm to determine how big to make the scroll bar head
   const determineScrollBarScalingAmount = () => {
     let amount = 100;
 
@@ -509,58 +516,7 @@ function BigTable(itemList, options) {
     return amount;
   };
 
-  const createScrollBar = () => {
-    const scrollBarTrack = document.createElement('div');
-    scrollBarTrack.className = `big-table-vertical-scroll-bar-track ` +
-      `${this._props.scrollBarTrackClass || ''}`;
-
-    this._props.scrollBarTrack = scrollBarTrack;
-
-    const scrollBarHead = document.createElement('div');
-    scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
-    scrollBarHead.className = `big-table-vertical-scroll-bar-head ` +
-      `${this._props.scrollBarHeadClass || ''}`;
-    
-     this._props.scrollBarHead = scrollBarHead;
-
-    const that = this;
-    scrollBarHead.addEventListener('mousedown', (e) => {
-      that._props.grabbingScrollBar = true;
-      that._props.scrollBarGrabPreviousY = e.clientY;
-    });
-
-    window.addEventListener('mouseup', () => {
-      that._props.grabbingScrollBar = false;
-      that._props.scrollBarGrabPreviousY = null;
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (!that._props.grabbingScrollBar) return;
-
-      const trackRect = this._props.scrollBarTrack.getBoundingClientRect();
-
-      if (e.clientY < trackRect.top) {
-        performScroll(-this.offset);
-      } else if (e.clientY > trackRect.bottom) {
-        performScroll(determineMaxOffset() - this.offset);
-      } else {
-        const totalPixelsOfMovement = determineMaxScrollBarTop() / 100 * trackRect.height;
-        const rowsPerPixel = getCurrentObjectList().length / totalPixelsOfMovement;
-        const moveAmountPixels = e.clientY - that._props.scrollBarGrabPreviousY;
-        const totalRowsMoved = rowsPerPixel * moveAmountPixels;
-  
-        
-        performScroll(Math.round(totalRowsMoved));
-      }
-
-      that._props.scrollBarGrabPreviousY = e.clientY;
-      updateScrollHead();
-    })
-
-    scrollBarTrack.appendChild(scrollBarHead);
-    this._props.scrollBarContainer.appendChild(scrollBarTrack);
-  };
-
+  // visually update the scroll bar head based on the current offset
   const updateScrollHead = () => {
     const maximumTop = determineMaxScrollBarTop();
     const maxOffset = determineMaxOffset();
@@ -594,8 +550,65 @@ function BigTable(itemList, options) {
     }));
   };
 
+  const createScrollBar = () => {
+    const scrollBarTrack = document.createElement('div');
+    scrollBarTrack.className = `big-table-vertical-scroll-bar-track ` +
+      `${this._props.scrollBarTrackClass || ''}`;
+
+    this._props.scrollBarTrack = scrollBarTrack;
+
+    const scrollBarHead = document.createElement('div');
+    scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
+    scrollBarHead.className = `big-table-vertical-scroll-bar-head ` +
+      `${this._props.scrollBarHeadClass || ''}`;
+    
+     this._props.scrollBarHead = scrollBarHead;
+
+    const that = this;
+
+    // listener for starting a scroll bar drag
+    scrollBarHead.addEventListener('mousedown', (e) => {
+      that._props.grabbingScrollBar = true;
+      that._props.scrollBarGrabPreviousY = e.clientY;
+    });
+
+    // listener for ending a scroll bar drag
+    window.addEventListener('mouseup', () => {
+      that._props.grabbingScrollBar = false;
+      that._props.scrollBarGrabPreviousY = null;
+    });
+
+    // listener for performing a scroll bar drag
+    window.addEventListener('mousemove', (e) => {
+      if (!that._props.grabbingScrollBar) return;
+
+      const trackRect = this._props.scrollBarTrack.getBoundingClientRect();
+
+      if (e.clientY < trackRect.top) {
+        performScroll(-this.offset);
+      } else if (e.clientY > trackRect.bottom) {
+        performScroll(determineMaxOffset() - this.offset);
+      } else {
+        const totalPixelsOfMovement = determineMaxScrollBarTop() / 100 * trackRect.height;
+        const rowsPerPixel = getCurrentObjectList().length / totalPixelsOfMovement;
+        const moveAmountPixels = e.clientY - that._props.scrollBarGrabPreviousY;
+        const totalRowsMoved = rowsPerPixel * moveAmountPixels;
+  
+        
+        performScroll(Math.round(totalRowsMoved));
+      }
+
+      that._props.scrollBarGrabPreviousY = e.clientY;
+      updateScrollHead();
+    })
+
+    scrollBarTrack.appendChild(scrollBarHead);
+    this._props.scrollBarContainer.appendChild(scrollBarTrack);
+  };
+
   /* HORIZONTAL SCROLLING */
 
+  // calculates the total pixel width of all columns
   const determineWidthOfAllColumns = () => {
     const columnNodes = getColumnNodes();
     const columnNodesLeftEdge = columnNodes[0].getBoundingClientRect().left;
@@ -606,6 +619,8 @@ function BigTable(itemList, options) {
     return widthOfAllColumns;
   };
 
+  // calculates how big the scroll bar head should be based on how much wider
+  // the columns are than the column container
   const determineHorizontalScrollBarHeadSize = () => {
     const widthOfAllColumns = determineWidthOfAllColumns();
     const widthOfColumnContainer = this._props.columnContainer
@@ -616,10 +631,13 @@ function BigTable(itemList, options) {
     return scrollBarHeadWidth > 100 ? 100 : scrollBarHeadWidth;
   };
 
+  // calculates the maximum "left" value in percentage the scroll bar head can
+  // be set to without going past the right side of the scroll bar track
   const determineMaxScrollBarLeft = () => {
     return 100 - determineHorizontalScrollBarHeadSize();
   };
   
+  // visually update the scroll bar head based on the current offset
   const updateHorizontalScrollHead = () => {
     this._props.horizontalScrollBarHead.style.width =
       determineHorizontalScrollBarHeadSize() + '%';
@@ -629,7 +647,9 @@ function BigTable(itemList, options) {
     this._props.horizontalScrollBarHead.style.left = newLeft + '%';
   };
 
-  // updates the table offset then re-draws table, firing the the btscroll event
+  // determines the new offset based on how many scroll "steps" are supplied
+  // and moves the actual columns left or right, as well as updating the scroll
+  // bar head if visible
   const performHorizontalScroll = (steps) => {
     // a "step" = 0.01 or 1% of the amount the scroll bar head can move
     let desiredOffset = this._props.horizontalScrollOffset + steps;
@@ -661,16 +681,20 @@ function BigTable(itemList, options) {
      this._props.horizontalScrollBarHead = horizontalScrollBarHead;
 
     const that = this;
+
+    // listener for starting a scroll bar drag
     horizontalScrollBarHead.addEventListener('mousedown', (e) => {
       that._props.grabbingHorizontalScrollBar = true;
       that._props.horizontalScrollBarGrabPreviousX = e.clientX;
     });
 
+    // listener for ending a scroll bar drag
     window.addEventListener('mouseup', () => {
       that._props.grabbingHorizontalScrollBar = false;
       that._props.horizontalScrollBarGrabPreviousX = null;
     });
 
+    // listener for handling a scroll bar drag
     window.addEventListener('mousemove', (e) => {
       if (!that._props.grabbingHorizontalScrollBar) return;
 
@@ -705,7 +729,12 @@ function BigTable(itemList, options) {
   ** PUBLIC METHODS AND PROPERTIES **
   ***********************************/
 
-  this.clearSelection = clearSelection;
+  // this simply exposes the "clearSelection" function used for removing all
+  // row selections so the user can call it
+  this.clearSelection = () => {
+    clearSelection();
+    draw();
+  };
 
   this.place = (options) => {
     if (!options) {
@@ -878,7 +907,7 @@ function BigTable(itemList, options) {
       // remove empty values
       options.whitelistTerms = options.whitelistTerms.filter((term) => term.trim());
 
-      this.objects.forEach((obj) => {
+      this.masterList.forEach((obj) => {
         // don't bother initializing this variable if it isn't needed
         // this will keep track of the remaining unmatched terms for
         // whitelistMatchAll matches
@@ -934,7 +963,7 @@ function BigTable(itemList, options) {
       });
     } else {
       // if there is no whitelist, all items match by default
-      this._props.filteredList = [].concat(this.objects);
+      this._props.filteredList = [].concat(this.masterList);
     }
 
     // remove objects from the filtered list that have a blacklist match
@@ -1185,7 +1214,7 @@ function BigTable(itemList, options) {
 
   // this is only a reference, so when the external itemList gets updated,
   // the internal itemList does as well
-  this.objects = itemList;
+  this.masterList = itemList;
 
   // CSS classes defined by the user
   this._props.containerClass = options.containerClass || null;
@@ -1213,34 +1242,34 @@ function BigTable(itemList, options) {
   this._props.enableMoveableColumns = options.enableMoveableColumns || false;
   this._props.optimizeSorting = options.optimizeSorting || false;
 
-  // optional parameters the user may need access to
+  /* store the optional parameters the user may need access to in the main
+     object (not in ._props) */
+
   this.headerMap = options.headerMap || null;
-  this.propertyMap = (() => {
-    // this is the inverse of the headerMap
-    // it can be used to get a property name from a column header
-    // only exists if the user provided a headerMap
 
-    if (options.headerMap === undefined) {
-      return undefined;
-    }
+  // this is the inverse of the headerMap, it can be used to get a property name
+  // from a column header (only exists if the user provided a headerMap)
+  if (this.headerMap === undefined) {
+    this.propertyMap = (() => {
+      // reverses the header map so the draw function can get a property name from
+      // a column header title
+      const map = {};
+      for (const propertyName in options.headerMap) {
+        const headerTitle = options.headerMap[propertyName];
+        map[headerTitle] = propertyName;
+      }
+  
+      return map;
+    })();
+  }  
 
-    // reverses the header map so the draw function can get a property name from
-    // a column header title
-    const map = {};
-    for (const propertyName in options.headerMap) {
-      const headerTitle = options.headerMap[propertyName];
-      map[headerTitle] = propertyName;
-    }
+  /* set up the grid template for the columns depending on if the user
+     supplied specific widths for any of the columns */
 
-    return map;
-  })();
-
-  // this sets up the grid template for the columns depending on if the user
-  // supplied specific widths for any of the columns
   if (options.columnWidths) {
     // loop through the provided column widths map and push their values to an 
-    // array in the order the properties were provided in, filling in 1fr for 
-    // any missing values
+    // array in the order the properties are provided in this.itemProperties,
+    // filling in "1fr" for any missing values
     this._props.gridTemplate = [];
     this.itemProperties.forEach((propertyName) => {
       // if the value is in the columnWidths map under the property name or 
@@ -1258,22 +1287,74 @@ function BigTable(itemList, options) {
     this._props.gridTemplate.pop(); // last element in array will be empty
   }
 
-  /* initialize properties not supplied by the user */
+  /* give user access to the table's node after creating it and attach
+     listeners to it for scrolling the table */
+  
+  const {tableContainer, columnContainer} = createTableStructure();
 
-  this.node = createContainer();
-  this._props.columnContainer =
-    this.node.getElementsByClassName('big-table-column-container')[0];
+  this.node = tableContainer;
 
-  // sorting properties
+  // listener for both vertiacal and horizontal scrolling
+  this.node.addEventListener('wheel', (e) => {
+    e.preventDefault();
+
+    if (!e.shiftKey) {
+      // vertical scrolling
+
+      // determine determine how many steps to count the scroll as
+      let scrollCount = 0;
+      if (e.deltaY > 0) {
+        let stepCounter = 0;
+        while (e.deltaY > stepCounter) {
+          stepCounter += 50;
+          scrollCount++;
+        }
+      } else {
+        let stepCounter = 0;
+        while (e.deltaY < stepCounter) {
+          stepCounter -= 50;
+          scrollCount--;
+        }
+      }
+
+      performScroll(scrollCount);
+    } else {
+      // horizontal scrolling
+
+      // determine determine how many steps to count the scroll as
+      let scrollCount = 0;
+      if (e.deltaY > 0) {
+        let stepCounter = 0;
+        while (e.deltaY > stepCounter) {
+          stepCounter += 50;
+          scrollCount++;
+        }
+      } else {
+        let stepCounter = 0;
+        while (e.deltaY < stepCounter) {
+          stepCounter -= 50;
+          scrollCount--;
+        }
+      }
+
+      performHorizontalScroll(scrollCount * 0.01);
+    }
+  });
+
+  // store this reference to the column container that
+  // was created above in createContainer for use in various places
+  this._props.columnContainer = columnContainer;
+
+  /* sorting properties */
 
   this.currentSortProperty = null;
   this.currentSortDirection = null;
 
-  //  column resizing properties
+  /*  column resizing properties */
   
   this._props.isResizing = false;
   
-  // scrolling properties
+  /* scrolling properties */
   
   this.offset = 0;
   this._props.rowCount = 20;
@@ -1298,13 +1379,7 @@ function BigTable(itemList, options) {
     }, 0);
   }
 
-  // row selection properties
-
-  if (this._props.enableSelection) {
-    this.selectedItems = [];
-  }
-
-  // apply theme settings
+  /* apply theme settings */
 
   const themeStyles = document.createElement('style');
   themeStyles.innerHTML = Themes[this._props.themeName];
@@ -1315,7 +1390,7 @@ function BigTable(itemList, options) {
     document.head.appendChild(themeStyles);  
   }
 
-  // apply required styling for functionality
+  /* apply required styling for functionality */
   
   const requiredStyles = document.createElement('style');
   requiredStyles.innerHTML = requiredStylesContent;
@@ -1323,7 +1398,7 @@ function BigTable(itemList, options) {
 
   requiredStyles
 
-  // enable column resizing
+  /* enable column resizing */
 
   if (this._props.enableColumnResizing) {
     const resetResizeProperties = () => {
@@ -1345,10 +1420,10 @@ function BigTable(itemList, options) {
       const columnWidth = columnDiv.getBoundingClientRect().width;
       const newColumnPercentage = (columnWidth + change) / columnContainerWidth;
 
-      const columnChildIndex = Array.from(columnContainer.children)
+      const columnIndex = Array.from(columnContainer.children)
         .indexOf(columnDiv);
       
-      updateColumnGridTemplate(columnChildIndex, `${newColumnPercentage*100}%`);
+      updateColumnGridTemplate(columnIndex, `${newColumnPercentage*100}%`);
 
       this._props.previousResizeX = e.clientX;
 
@@ -1360,7 +1435,7 @@ function BigTable(itemList, options) {
     });
   }
 
-  // moveable columns properties
+  /* enable properties columns */
 
   if (this._props.enableMoveableColumns) {
     const resetColumnMoveProperties =() => {
@@ -1558,7 +1633,7 @@ function BigTable(itemList, options) {
     });
   }
 
-  // sorting algorithm optimizer
+  /* sorting algorithm optimizer */
 
   if (this._props.optimizeSorting) {
     const fastestBenchmarkMap = {};
