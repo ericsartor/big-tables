@@ -1572,6 +1572,13 @@ function BigTable(itemList, options) {
       if (!this._props.isDraggingColumn) return;
 
       const targetColumn = findColumnFromEvent(e);
+
+      // if not releasing onto a column, cancel the drag
+      if (targetColumn === null) {
+        resetColumnMoveProperties();
+        return;
+      }
+
       const mouseReleaseSideOfColumn = determineReleaseSide(
         e.clientX, targetColumn
       );
