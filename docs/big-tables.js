@@ -1318,6 +1318,13 @@ function BigTable(itemList, options) {
       algorithm: string - name of the sorting algorithm to use
     */
 
+   if (
+      this._props.previousDragTime !== undefined &&
+      performance.now() - this._props.previousDragTime < 50
+    ) {
+      return;
+    }
+
     // assert that columnName or propertyName were provided, not both or neither
     if (!(!!options.propertyName ^ !!options.columnName)) {
       if (options.propertyName && options.columnName) {
@@ -1463,10 +1470,6 @@ function BigTable(itemList, options) {
     updateTableForNewList();
 
     this.node.dispatchEvent(new CustomEvent('btclearsort'));
-  };
-
-  this.runSortBenchmarks = () => {
-
   };
 
   /* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR *//* CONSTRUCTOR */
@@ -1702,9 +1705,14 @@ function BigTable(itemList, options) {
     });
   }
 
-  /* enable properties columns */
+  /* enable moveable columns */
 
   if (this._props.enableMoveableColumns) {
+    // this tracks when the last header movement was, and is used to prevent
+    // sorts happens by accident after a column move if a click listener is
+    // attached to the header that was being moved
+    this._props.previousDragTime = null;
+
     const resetColumnMoveProperties =() => {
       // put the drag header back in place
       if (this._props.currentDragColumnHeader) {
@@ -1729,6 +1737,11 @@ function BigTable(itemList, options) {
     // goes up it's parent tree to find the column node
     const findColumnFromEvent = (e) => {
       let eventTarget = e.target;
+
+      // break out if the event target isn't a body child (this happens if the
+      // mouse goes offscreen during a drag)
+      const targetTagName = eventTarget.tagName.toUpperCase();
+      if (['HTML', 'BODY'].includes(targetTagName)) return null;
 
       if (eventTarget === this._props.currentDragColumnHeader) {
         // if the mouse is currently over the header row, then due to the
@@ -1762,9 +1775,10 @@ function BigTable(itemList, options) {
           return true;
         });
 
-        // if we didn't find a column node, explicitly set the target to null
+        // if we didn't find a column node (and thus the eventTarget is never
+        // changed from currentDragColumnHeader), return null
         if (eventTarget === this._props.currentDragColumnHeader) {
-          eventTarget = null;
+          return null;
         }
       } else {
         // if the mouse is not over the header row, the just check the parent
@@ -1773,13 +1787,9 @@ function BigTable(itemList, options) {
         while (!eventTarget.classList.contains('big-table-column')) {
           eventTarget = eventTarget.parentNode;
   
-          // if we ever reach the end of the parent tree, break out
-          if (!eventTarget) break;
-        }
+          // if we ever reach the end of the parent tree, return the function
+          if (eventTarget === document.body) return null;
 
-        // if we didn't find a column node, explicitly set the target to null
-        if (!eventTarget) {
-          eventTarget = null;
         }
       }
 
@@ -1842,7 +1852,7 @@ function BigTable(itemList, options) {
         if (targetColumnIndex === dragColumnIndex) {
           // if both indexes are the same (the column is behing dropped on 
           // itself), a move is not necessary
-          return null;
+          return undefined;
         } else if (targetColumnIndex < dragColumnIndex) {
           if (mouseReleaseSideOfColumn === 'left') {
             return targetColumn;
@@ -1860,13 +1870,13 @@ function BigTable(itemList, options) {
 
       // a move is only required if we've determined we aren't trying to insert
       // the drag column before itself
-      if (columnToInsertBefore !== dragColumn && columnToInsertBefore !== null) {
+      if (columnToInsertBefore !== dragColumn && columnToInsertBefore !== undefined) {
         
         dragColumn.remove();
         
         // columnToInsertBefore will be undefined if trying to place
         // the drag column at the end
-        if (columnToInsertBefore === undefined) {
+        if (columnToInsertBefore === null) {
           this._props.columnContainer.appendChild(dragColumn);
         } else {
           this._props.columnContainer.insertBefore(
@@ -1894,6 +1904,8 @@ function BigTable(itemList, options) {
         const newGridTemplate = columnContainerGridTemplate.join(' ');
 
         this._props.columnContainer.style.gridTemplateColumns = newGridTemplate;
+
+        this._props.previousDragTime = performance.now();
       }
 
       resetColumnMoveProperties();
