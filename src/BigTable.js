@@ -284,22 +284,22 @@ function BigTable(itemList, options) {
       }
     }
   };
-  
+
   // removes the row selection if anything that isn't a child of the table is
   // clicked
   window.addEventListener('click', (e) => {
-    let target = e.target;
-
-    while (target) {
-      if (target === this.node) {
-        return;
+    let childOfBigTable = false;
+    e.target.className.split(' ').some((className) => {
+      if (className.includes('big-table')) {
+        childOfBigTable = true;
+        return true;
       }
+    });
 
-      target = taget.parentNode;
+    if (!childOfBigTable) {
+      clearSelection();
+      draw();
     }
-
-    clearSelection()
-    draw();
   });
 
   /* value request functions */
@@ -736,6 +736,8 @@ function BigTable(itemList, options) {
     draw();
   };
 
+  // used to actually place the table node on the page by supplying either a
+  // parent node or a sibling as a reference
   this.place = (options) => {
     if (!options) {
       throw Utils.generateError(`Tried to append table to page but no options` +
@@ -791,12 +793,13 @@ function BigTable(itemList, options) {
     draw();
   };
 
+  // so far this isn't being used for anything...
   this.update = () => {
     draw();
   };
 
-  // filter the table contents
-  this.search = (options) => {
+  // filter the table contents 
+  this.filter = (options) => {
     /*
     options:
         whitelistTerms: Array - at least one of these strings must be found 
@@ -821,7 +824,7 @@ function BigTable(itemList, options) {
         options[propertyName] = [value];
       } else if (!Array.isArray(value)) {
         // if the whitelistTerms value isn't a string or Array, throw an error
-        throw Utils.generateError(`Search: The value supplied for ${propertyName}` +
+        throw Utils.generateError(`Filter: The value supplied for ${propertyName}` +
           ` was neither a string or an Array: ${value}` +
           ` (${typeof value})`);
       } else {
@@ -831,7 +834,7 @@ function BigTable(itemList, options) {
         });
 
         if (foundNonStringValue) {
-          throw Utils.generateError(`Search: The value supplied for ${propertyName}` +
+          throw Utils.generateError(`Filter: The value supplied for ${propertyName}` +
             ` was an Array, but it contained a non-string item:` +
             ` ${foundNonStringValue} (${typeof foundNonStringValue})`);
         }
@@ -1013,7 +1016,7 @@ function BigTable(itemList, options) {
     // filtering is complete, draw the update and update the scrollbar
     updateTableForNewList();
 
-    this.node.dispatchEvent(new CustomEvent('btsearch', {
+    this.node.dispatchEvent(new CustomEvent('btfilter', {
       detail: {
         results: this._props.filteredList,
         termsMatched: termsMatched,
@@ -1028,7 +1031,7 @@ function BigTable(itemList, options) {
     }));
   };
 
-  this.clearSearch = () => {
+  this.clearFilter = () => {
     this._props.filteredList = null;
 
     // this will update the sorted list with a sort on the master list
@@ -1038,7 +1041,7 @@ function BigTable(itemList, options) {
 
     updateTableForNewList();
 
-    this.node.dispatchEvent(new CustomEvent('btclearsearch'));
+    this.node.dispatchEvent(new CustomEvent('btclearfilter'));
   };
 
   this.sort = (options, performingSortUpdate) => {

@@ -213,7 +213,7 @@
 
   // t.node.addEventListener('btscroll', (e) => console.log(e));
   t.node.addEventListener('btsearch', (e) => console.log(e));
-  // t.node.addEventListener('btclearsearch', (e) => console.log(e));
+  // t.node.addEventListener('btclearFilter', (e) => console.log(e));
   t.node.addEventListener('btsort', (e) => console.log(e));
   t.node.addEventListener('btsort', (e) => console.log(e.detail));
   t.node.addEventListener('btclearsort', (e) => console.log(e));
@@ -231,7 +231,7 @@
   const matchAllToggle = document.getElementById('search-match-all');
 
   // initially populate the result count with the total number of items
-  resultCount.textContent = `Results: ${t.objects.length}`;
+  resultCount.textContent = `Results: ${t.masterList.length}`;
   
   // update result count and make sure reset button is showing after search
   t.node.addEventListener('btsearch', (e) => {
@@ -240,8 +240,8 @@
   });
 
   // hide reset button when a search gets cleared
-  t.node.addEventListener('btclearsearch', (e) => {
-    resultCount.textContent = `Results: ${t.objects.length}`;
+  t.node.addEventListener('btclearFilter', (e) => {
+    resultCount.textContent = `Results: ${t.masterList.length}`;
     whitelistInput.value = '';
     blacklistInput.value = '';
     searchReset.style.display = 'none';
@@ -249,7 +249,7 @@
 
   // clear the search and hide the reset button when it is clicked
   searchReset.addEventListener('click', function() {
-    t.clearSearch();
+    t.clearFilter();
     this.style.display = 'none';
   });
 
@@ -278,7 +278,7 @@
 
   // run a BigTable search with the paramaters set forth
   const runSearch = () => {
-    t.search({
+    t.filter({
       whitelistTerms: whitelistInput.value.includes(',') ? whitelistInput.value.split(',') : whitelistInput.value,
       blacklistTerms: blacklistInput.value.includes(',') ? blacklistInput.value.split(',') : blacklistInput.value,
       whitelistProperties: whitelistProperties,
@@ -293,7 +293,7 @@
   whitelistInput.addEventListener('keyup', function() {
     // clear the search if both inputs are empty
     if (!this.value.trim() && !blacklistInput.value.trim()) {
-      t.clearSearch();
+      t.clearFilter();
       return;
     } else {
       runSearch();
@@ -305,7 +305,7 @@
   blacklistInput.addEventListener('keyup', function() {
     // clear the search if both inputs are empty
     if (!this.value.trim() && !whitelistInput.value.trim()) {
-      t.clearSearch();
+      t.clearFilter();
       return;
     } else {
       runSearch();
