@@ -454,14 +454,15 @@ function BigTable(itemList, options) {
 
     const tableContainer = this.node;
 
-    // enable text selecting for the column the hovered value cell is in
+    // enable text selecting for the column the hovered value cell is in or the
+    // row the value cell is in based on if shift key is pressed down
     valueCellDiv.addEventListener('mouseover', function(e) {
       const allValueCells = Array.from(
         tableContainer.getElementsByClassName(`big-table-value-cell`)
       );
 
       const valueCellsToEnableHighlightOn = Array.from(
-        e.ctrlKey ?
+        e.shiftKey ?
         Array.from(
           // value cells in the same row as the hovered cell
           tableContainer.getElementsByClassName(`big-table-row-${rowNumber}`)
