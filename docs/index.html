@@ -6,6 +6,11 @@
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Document</title>
   <style>
+    #table-container {
+      width:500px;
+      height:500px;
+    }
+
     .container-class {
       font-family:arial;
       margin-top:10px;
@@ -34,10 +39,10 @@
       background:rgb(252, 252, 252);
     }
 
-    .scroll-bar-track-class {
+    .vertical-scroll-bar-track-class {
       background:rgb(165, 165, 165);
     }
-    .scroll-bar-head-class {
+    .vertical-scroll-bar-head-class {
       background:rgb(207, 207, 207);
       border-radius:5px;
       box-shadow:0 0 2px black;
@@ -70,6 +75,8 @@
     <input id="search-match-all"type="checkbox">
     <span id="search-reset">Match All</span>
   </div>
+
+  <div id="table-container"></div>
 
   <!-- tall element for testing table scrolling vs page scrolling -->
   <div id="tall-element" style="height:2000px;width:100%;"></div>
@@ -135,14 +142,17 @@
 
   const t = BigTable(itemList, {
     theme: 'btdefault',
+
+    /* CSS styles */
     containerClass: 'container-class',
     headerClass: 'header-class',
     // columnClass: 'column-class',
     cellClass: 'cell-class',
-    scrollBarTrackClass: 'scroll-bar-track-class',
-    scrollBarHeadClass: 'scroll-bar-head-class',
+    verticalScrollBarTrackClass: 'vertical-scroll-bar-track-class',
+    verticalScrollBarHeadClass: 'vertical-scroll-bar-head-class',
     horizontalScrollBarTrackClass: 'horizontal-scroll-bar-track-class',
     horizontalScrollBarHeadClass: 'horizontal-scroll-bar-head-class',
+
     showVerticalScrollBar: true,
     showHorizontalScrollBar: true,
     enableSelection: true,
@@ -158,9 +168,9 @@
       'extraValue': 'Extra Value'
     },
     columnWidths: {
-      'name': '20%',
-      'birthTime': '150px',
-      'age': '50px',
+      // 'name': '20%',
+      // 'birthTime': '150px',
+      // 'age': '50px',
       // 'extraValue': '400px'
     },
     sortOrderMap: {
@@ -208,7 +218,8 @@
   });
 
   t.place({
-    insertBefore: document.getElementById('tall-element')
+    // insertBefore: document.getElementById('tall-element')
+    appendChild: document.getElementById('table-container')
   });
 
   // t.node.addEventListener('btscroll', (e) => console.log(e));

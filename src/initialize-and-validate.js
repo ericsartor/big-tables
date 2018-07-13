@@ -47,8 +47,8 @@ return function(itemList, options) {
     'headerClass',
     'columnClass',
     'cellClass',
-    'scrollBarTrackClass',
-    'scrollBarHeadClass',
+    'verticalScrollBarTrackClass',
+    'verticalScrollBarHeadClass',
     'horizontalScrollBarTrackClass',
     'horizontalScrollBarHeadClass',
     'showVerticalScrollBar',
@@ -119,8 +119,8 @@ return function(itemList, options) {
   validatePropertyAsString('columnClass');
   validatePropertyAsString('cellClass');
   validatePropertyAsString('scrollBarContainerClass');
-  validatePropertyAsString('scrollBarTrackClass');
-  validatePropertyAsString('scrollBarHeadClass');
+  validatePropertyAsString('verticalScrollBarTrackClass');
+  validatePropertyAsString('verticalScrollBarHeadClass');
   validatePropertyAsString('horizontalScrollBarTrackClass');
   validatePropertyAsString('horizontalScrollBarHeadClass');
   
