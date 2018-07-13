@@ -1,16 +1,3 @@
-// const files = ['style', 'Utils', 'sorting-algorithms',
-//  'BigTable', 'initialize-and-validate'];
-
-// const fs = require('fs');
-
-// const codeFromFiles = files.map((file) => {
-//   return fs.readFileSync(`./src/${file}.js`, {encoding:'utf8'});
-// })
-// .join('\r\n');
-
-// fs.writeFileSync('./big-tables.js', `const BigTable = (function() {${codeFromFiles}})();`, {encoding:'utf8'});
-// fs.writeFileSync('./docs/big-tables.js', `const BigTable = (function() {${codeFromFiles}})();`, {encoding:'utf8'});
-
 const fs = require('fs');
 
 // keyword used in the JavaScript block comment to signify an import statement
@@ -80,8 +67,6 @@ function findImportStatementsAndReplace(fileName) {
     indentedImportFileContents.reverse().forEach((line) => {
       newFileContents.splice(indexToInsertAt, 0, line);
     });
-    
-    // newFileContents = newFileContents.replace(importStatement, indentedImportFileContents);
   });
 
   return newFileContents;
