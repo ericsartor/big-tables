@@ -5,305 +5,23 @@ function BigTable(itemList, options) {
   // on the object being drawn
   const NO_VALUE = '[no value]';
 
-  /* PRIVATE METHODS */
 
-  // creates the main container, the column container and (if enabled by user)
-  // the scroll bar containers for vertical and horizontal scroll bars
-  const createTableStructure = () => {
-    // whole table container
-    const tableContainer = document.createElement('div');
-    tableContainer.className = `big-table-container` +
-      ` ${this._props.containerClass || ''}`;
-    tableContainer.style.display = 'grid';
-    tableContainer.style.gridTemplate = `1fr` +
-      `${this._props.showHorizontalScrollBar ? ` 30px` : ''}` +
-      ` / 1fr` +
-      `${this._props.showVerticalScrollBar ? ` 30px` : ''}`;
 
-    // container for column nodes
-    const columnContainer = document.createElement('div');
-    columnContainer.className = `big-table-column-container`;
-    columnContainer.style.display = 'grid';
-    columnContainer.style.gridTemplate = `1fr / ` +
-      `${this._props.gridTemplate.join(' ')}`;
-    columnContainer.style.position = 'relative';
+  /* IMPORTS */
 
-    tableContainer.appendChild(columnContainer);
-    
-    if (this._props.showVerticalScrollBar) {
-      // container for the vertical scroll bar
-      const scrollBarContainer = document.createElement('div');
-      scrollBarContainer.className = `big-table-vertical-scroll-bar-container`;
-      scrollBarContainer.style.display = 'grid';
-      scrollBarContainer.style.gridTemplate = `1fr / 1fr`;
-      tableContainer.appendChild(scrollBarContainer);
-    }
+  // functions for creating of container divs, columns, headers and cells
+  // IMPORT::node-creation.js
 
-    if (this._props.showHorizontalScrollBar) {
-      // container for the horizontal scroll bar
-      const scrollBarContainer = document.createElement('div');
-      scrollBarContainer.className = `big-table-horizontal-scroll-bar-container`;
-      scrollBarContainer.style.display = 'grid';
-      scrollBarContainer.style.gridTemplate = `1fr / 1fr`;
-      tableContainer.appendChild(scrollBarContainer);
-    }
+  // functions for handling row selection when value cells are clicked
+  // IMPORT::row-selection.js
 
-    return {
-      tableContainer,
-      columnContainer
-    };
-  };
+  // functions for creating and giving function to both scroll bars
+  // IMPORT::VerticalScrollBar.js
+  // IMPORT::HorizontalScrollBar.js
 
-  // create the vertical column that will hold the value cells for a given
-  // item property and the column header cell
-  const createColumn = () => {
-    const columnDiv = document.createElement('div');
-    columnDiv.className = `big-table-column ${this._props.columnClass || ''}`;
 
-    return columnDiv;
-  };
 
-  // create the first cell of each column that acts as the header or title for
-  // that column, which has listeners attached to it for resizing the columns
-  // and moving the columns
-  const createHeader = (headerName) => {
-    const headerDiv = document.createElement('div');
-    headerDiv.className = `big-table-header ${this._props.headerClass || ''}`;
-    headerDiv.textContent = headerName;
-    headerDiv.style.display = 'grid';
-
-    if (this._props.enableColumnResizing || this._props.enableMoveableColumns) {
-      // returns false if mouse is not in a resize hitbox, or
-      // 'left'/'right' if it is (signifying which side of the header).
-      // this method is used in both column resizing and column moving logic,
-      // so it is included in this main lexical scope
-      const isMouseInResizeHitbox = (headerDiv, clientX) => {
-        const headerRect = headerDiv.getBoundingClientRect();
-        const leftEdge = Math.floor(headerRect.left);
-        const rightEdge = Math.ceil(headerRect.right);
-
-        const columnDivs = getColumnNodes();
-
-        const firstColumn = columnDivs[0];
-
-        const hitboxWidth = 10;
-
-        if (
-          clientX >= leftEdge &&
-          clientX < leftEdge + hitboxWidth / 2 &&
-          headerDiv.parentNode !== firstColumn  
-        ) {
-          return 'left';
-        } else if (
-          clientX <= rightEdge &&
-          clientX >= rightEdge - hitboxWidth / 2
-        ) {
-          return 'right';
-        } else {
-          return false;
-        }
-      };
-      
-      // add listeners for enabling column resizing
-      if (this._props.enableColumnResizing) {
-        // change the cursor to a resize cursor if inside a resize hitbox
-        headerDiv.addEventListener('mousemove', (e) => {
-          const whichResizeHitbox = isMouseInResizeHitbox(headerDiv, e.clientX);
-
-          if (whichResizeHitbox && headerDiv.style.cursor !== 'col-resize') {
-            headerDiv.style.cursor = 'col-resize';
-          } else if (!whichResizeHitbox && headerDiv.style.cursor) {
-            headerDiv.style.cursor = null;
-          }
-        });
-
-        // reset the cursor to default if it was set to resize
-        headerDiv.addEventListener('mouseout', () => {
-          if (headerDiv.style.cursor) {
-            headerDiv.style.cursor = null;
-          }
-        });
-
-        // if user clicks on a resize hitbox, enable resizing and set the column
-        // div to be resized
-        headerDiv.addEventListener('mousedown', (e) => {
-          const whichResizeHitbox = isMouseInResizeHitbox(headerDiv, e.clientX);
-
-          if (!whichResizeHitbox) return;
-
-          if (whichResizeHitbox === 'left') {
-            // if grabbing the left hitbox, resize the element to the left
-            this._props.resizeColumn = headerDiv.parentNode.previousElementSibling;
-          } else if (whichResizeHitbox === 'right') {
-            // if grabbing right hitbox, resize current element
-            this._props.resizeColumn = headerDiv.parentNode;
-          }
-
-          this._props.resizing = true;
-          this._props.previousResizeX = e.clientX;
-        });
-      }
-
-      // add listeners for enabling column movement
-      if (this._props.enableMoveableColumns) {
-        headerDiv.addEventListener('mousedown', (e) => {
-          // stops the header from being dragged if user is trying to resize
-          if (
-            this._props.enableColumnResizing &&
-            isMouseInResizeHitbox(headerDiv, e.clientX)
-          ) {
-            return;
-          }
-
-          this._props.isDraggingColumn = true;
-          this._props.currentDragColumnHeader = headerDiv;
-
-          // track start of drag so we know where to move the header to
-          // during each move
-          this._props.columnDragXStart = e.clientX;
-          this._props.columnDragYStart = e.clientY;
-        });
-      }
-    }
-
-    return headerDiv;
-  };
-
-  // create a cell that will be added to a column, displaying the value for
-  // the property the column is for for the object being drawn 
-  const createValueCell = (value, rowNumber, propertyName, rowObject) => {
-    value = (() => {
-      if (!this._props.valueParseFunctions) {
-        return value;
-      } else if (!this._props.valueParseFunctions[propertyName]) {
-        return value;
-      } else {
-        return this._props.valueParseFunctions[propertyName](value);
-      }
-    })();
-
-    const valueCellDiv = document.createElement('div');
-    valueCellDiv.className = `big-table-value-cell big-table-row-${rowNumber}` +
-      ` big-table-${propertyName}-value-cell ${this._props.cellClass || ''}` +
-      ` ${isInSelection(rowObject) ? 'big-table-selected' : ''}`;
-    valueCellDiv.textContent = value;
-    valueCellDiv.rowObject = rowObject;
-
-    const tableContainer = this.node;
-
-    // enable text selecting for the column the hovered value cell is in or the
-    // row the value cell is in based on if shift key is pressed down
-    valueCellDiv.addEventListener('mouseover', function(e) {
-      const allValueCells = Array.from(
-        tableContainer.getElementsByClassName(`big-table-value-cell`)
-      );
-
-      const valueCellsToEnableHighlightOn = Array.from(
-        e.shiftKey ?
-        Array.from(
-          // value cells in the same row as the hovered cell
-          tableContainer.getElementsByClassName(`big-table-row-${rowNumber}`)
-        ) :
-        Array.from(
-          // value cells in the same column as the hovered cell
-          tableContainer.getElementsByClassName(`big-table-${propertyName}-value-cell`)
-        )
-      );
-
-      const valueCellsToDisableHighlightOn = allValueCells.filter((valueCell) => {
-        return !valueCellsToEnableHighlightOn.includes(valueCell);
-      });
-
-      valueCellsToEnableHighlightOn.forEach((cell) => {
-        cell.classList.add('big-table-enable-highlight')
-      });
-
-      valueCellsToDisableHighlightOn.forEach((cell) => {
-        cell.classList.remove('big-table-enable-highlight')
-      });
-    });
-
-    // row selection listener
-    valueCellDiv.addEventListener('click', function(e) {
-      handleRowSelection(e, valueCellDiv.rowObject);
-      draw();
-    });
-
-    return valueCellDiv;
-  };
-
-  /* row selection functions and variables */
-
-  this.selectedItems = [];
-
-  const clearSelection = () => {
-    while (this.selectedItems.length !== 0) {
-      this.selectedItems.pop();
-    }
-  };
-
-  const removeFromSelection = (rowObject) => {
-    const i = this.selectedItems[this.selectedItems.indexOf(rowObject)];
-    this.selectedItems.splice(i, 1);
-  };
-
-  const addToSelection = (rowObject) => {
-    this.selectedItems.push(rowObject);
-  };
-
-  const isInSelection = (rowObject) => {
-    return this.selectedItems.includes(rowObject);
-  };
-
-  const handleRowSelection = (e, rowObject) => {
-    if (this.selectedItems.length === 0) {
-      addToSelection(rowObject);
-    } else {
-      if (e.ctrlKey) {
-        if (isInSelection(rowObject)) {
-          removeFromSelection();
-        } else {
-          addToSelection(rowObject);
-        }
-      } else if (e.shiftKey) {
-        const currentList = getCurrentObjectList();
-
-        const selectionStartIndex = currentList.indexOf(this.selectedItems[0]);
-        const clickedIndex = currentList.indexOf(rowObject);
-        const startingIndex = Math.min(clickedIndex, selectionStartIndex);
-        const endingIndex = Math.max(clickedIndex, selectionStartIndex);
-                
-        for (let i = startingIndex; i <= endingIndex; i++) {
-          const item = currentList[i];
-          if (!isInSelection(item)) {
-            addToSelection(item);
-          }
-        }
-      } else {
-        clearSelection();
-        addToSelection(rowObject);
-      }
-    }
-  };
-
-  // removes the row selection if anything that isn't a child of the table is
-  // clicked
-  window.addEventListener('click', (e) => {
-    let childOfBigTable = false;
-    e.target.className.split(' ').some((className) => {
-      if (className.includes('big-table')) {
-        childOfBigTable = true;
-        return true;
-      }
-    });
-
-    if (!childOfBigTable) {
-      clearSelection();
-      draw();
-    }
-  });
-
-  /* value request functions */
+  /* VALUE REQUEST FUNCTIONS */
 
   // returns the list that the user is actually looking at at any given time
   const getCurrentObjectList = () => {
@@ -331,7 +49,9 @@ function BigTable(itemList, options) {
     return this._props.columnContainer.style.gridTemplateColumns.split(' ');
   };
 
-  /* value update functions */
+
+
+  /* VALUE UPDATE FUNCTIONS */
 
   // easily update a specific column grid template value by index
   const updateColumnGridTemplate = (i, value) => {
@@ -342,6 +62,8 @@ function BigTable(itemList, options) {
 
     this._props.columnContainer.style.gridTemplateColumns = gridTemplateArr.join(' ');
   };
+
+
 
   /* functions for applying user supplied event listeners to nodes */
 
@@ -385,6 +107,9 @@ function BigTable(itemList, options) {
       });
     }
   };
+
+  
+  /* DRAWING FUNCTIONS */
 
   // creates the columns and column headers if they aren't present, then
   // dletes all current value cells and creates new value cells based on the
@@ -481,15 +206,8 @@ function BigTable(itemList, options) {
   };
 
 
-  /* SCROLLING STUFF */
 
-  // IMPORT::VerticalScrollBar.js
-
-  // IMPORT::HorizontalScrollBar.js
-
-  /**********************************
-  ** PUBLIC METHODS AND PROPERTIES **
-  ***********************************/
+  /* PUBLIC METHODS AND PROPERTIES */
 
   // this simply exposes the "clearSelection" function used for removing all
   // row selections so the user can call it
