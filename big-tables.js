@@ -1,4 +1,5 @@
 const BigTable = (function() {
+  console.log('test worked');
   const Themes = {
     'btdefault': ``
   };
@@ -41,7 +42,6 @@ const BigTable = (function() {
       background:blue !important;
     }
   `;
-
   const Utils = {
     generateError(errorText) {
       return new Error(`Big Tables: ${errorText}`);
@@ -119,7 +119,6 @@ const BigTable = (function() {
       return allProperties;
     }
   };
-
   const Sorting = {
     compare(a, b, comparison, sortHierarchy, direction) {
       let columnIndex = 0;
@@ -264,7 +263,6 @@ const BigTable = (function() {
       });
     }
   };
-
   function BigTable(itemList, options) {
     /* PRIVATE CONSTANTS */
   
@@ -992,8 +990,6 @@ const BigTable = (function() {
       horizontalScrollBarTrack.appendChild(horizontalScrollBarHead);
       this._props.horizontalScrollBarContainer.appendChild(horizontalScrollBarTrack);
     };
-    
-    console.log('it worked');
   
     /**********************************
     ** PUBLIC METHODS AND PROPERTIES **
@@ -1966,7 +1962,6 @@ const BigTable = (function() {
       this._props.fastestBenchmarkMap = fastestBenchmarkMap;
     }
   }
-
   return function(itemList, options) {
     /*
       required

@@ -483,9 +483,9 @@ function BigTable(itemList, options) {
 
   /* SCROLLING STUFF */
 
-  /* IMPORT::./src/VerticalScrollBar.js */
+  // IMPORT::VerticalScrollBar.js
 
-  /* IMPORT::./src/HorizontalScrollBar.js */
+  // IMPORT::HorizontalScrollBar.js
 
   /**********************************
   ** PUBLIC METHODS AND PROPERTIES **
