@@ -321,15 +321,16 @@ function BigTable(itemList, options) {
       }
     }
 
-    const validateColumns = (propertyName) => {
-      const columnNames = options[propertyName];
+    const validateColumns = (optionPropertyName) => {
+      const columnNames = options[optionPropertyName];
       const invalidColumnName = columnNames.find((name) => {
         return !this.itemProperties.includes(name);
       });
 
       if (invalidColumnName) {
-        throw Utils.generateError(`A ${propertyName} value was supplied, but` +
-        ` it contains an invalid column name: ${invalidColumnName}`);
+        throw Utils.generateError(`A ${optionPropertyName} value was` +
+        ` supplied, but it contains an invalid column name:`
+        ` ${invalidColumnName}`);
       }
     }
 
@@ -523,6 +524,86 @@ function BigTable(itemList, options) {
 
     this.node.dispatchEvent(new CustomEvent('btclearfilter'));
   };
+
+
+
+  /* ITEM SET METHODS */
+
+  this.goToItemSet = (index) => {
+    const indexAsNumber = Number(index);
+
+    // assert that index value is an integer or can be parsed to an integer
+    if (isNaN(indexAsNumber) && indexAsNumber % 1 === 0) {
+      throw Utils.generateError(`table.goToItemSet(Number index) was provided` +
+        ` a non-integer value of "${index}".`);
+    }
+
+    // assert that index is not outside the bounds of the itemSetFilters array
+    if (index < 0 || index > this._props.itemSetFilters.length - 1) {
+      throw Utils.generateError(`table.goToItemSet(Number index) was provided` +
+        ` an index of "${indexAsNumber}" which is  outside the bounds of the` +
+        ` current itemSetFilters array.`);
+    }
+
+    // log the current index before changing the item set for firing the event
+    const previousIndex = this._props.currentItemSetIndex;
+
+    // update the item set
+    this.filter(this._props.itemSetFilters[indexAsNumber].filter);
+    this._props.currentItemSetIndex = indexAsNumber;
+
+    // fire an item set change event
+    this.node.dispatchEvent(new CustomEvent('btitemsetchange', {
+      detail: {
+        previousIndex,
+        currentIndex: indexAsNumber,
+        setTitle: this._props.itemSetFilters[indexAsNumber].setTitle || null
+      }
+    }));
+  };
+
+  this.goToNextItemSet = () => {
+    if (this._props.currentItemSetIndex === null) return false;
+    
+    if (this._props.currentItemSetIndex < this._props.itemSetFilters.length - 1) {
+      this.goToItemSet(this._props.currentItemSetIndex + 1);
+      return true;
+    } else {
+      return false;
+    }
+  };
+
+  this.goToPreviousItemSet = () => {
+    if (this._props.currentItemSetIndex === null) return false;
+    
+    if (this._props.currentItemSetIndex > 0) {
+      this.goToItemSet(this._props.currentItemSetIndex - 1);
+      return true;
+    } else {
+      return false;
+    }
+  };
+
+  this.clearItemSet = () => {
+    // log the current index before changing the item set for firing the event
+    const previousIndex = this._props.currentItemSetIndex;
+
+    this._props.currentItemSetIndex = null;
+    this.clearFilter();
+
+    // fire an item set change event
+    this.node.dispatchEvent(new CustomEvent('btitemsetchange', {
+      detail: {
+        previousIndex,
+        currentIndex: null,
+        setTitle: null
+      }
+    }));
+  };
+
+
+
+  /* SORTING METHODS */
 
   this.sort = (options, performingSortUpdate) => {
     /*
@@ -719,6 +800,7 @@ function BigTable(itemList, options) {
   this._props.headerListeners = options.headerListeners || null;
   this._props.cellListeners = options.cellListeners || null;
   this._props.columnWidths = options.columnWidths || null;
+  this._props.itemSetFilters = options.itemSetFilters || null;
 
   // flag options supplied by user
   this._props.showVerticalScrollBar = options.showVerticalScrollBar || false;
@@ -1174,5 +1256,9 @@ function BigTable(itemList, options) {
     });
 
     this._props.fastestBenchmarkMap = fastestBenchmarkMap;
+  }
+
+  if (this._props.itemSetFilters) {
+    this._props.currentItemSetIndex = null;
   }
 }

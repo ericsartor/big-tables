@@ -1,5 +1,4 @@
 const BigTable = (function() {
-  console.log('test worked');
   const Themes = {
     'btdefault': ``
   };
@@ -270,8 +269,11 @@ const BigTable = (function() {
     // on the object being drawn
     const NO_VALUE = '[no value]';
   
-    /* PRIVATE METHODS */
   
+  
+    /* IMPORTS */
+  
+    // functions for creating of container divs, columns, headers and cells
     // creates the main container, the column container and (if enabled by user)
     // the scroll bar containers for vertical and horizontal scroll bars
     const createTableStructure = () => {
@@ -284,7 +286,7 @@ const BigTable = (function() {
         `${this._props.showHorizontalScrollBar ? ` 30px` : ''}` +
         ` / 1fr` +
         `${this._props.showVerticalScrollBar ? ` 30px` : ''}`;
-  
+    
       // container for column nodes
       const columnContainer = document.createElement('div');
       columnContainer.className = `big-table-column-container`;
@@ -292,7 +294,7 @@ const BigTable = (function() {
       columnContainer.style.gridTemplate = `1fr / ` +
         `${this._props.gridTemplate.join(' ')}`;
       columnContainer.style.position = 'relative';
-  
+    
       tableContainer.appendChild(columnContainer);
       
       if (this._props.showVerticalScrollBar) {
@@ -303,7 +305,7 @@ const BigTable = (function() {
         scrollBarContainer.style.gridTemplate = `1fr / 1fr`;
         tableContainer.appendChild(scrollBarContainer);
       }
-  
+    
       if (this._props.showHorizontalScrollBar) {
         // container for the horizontal scroll bar
         const scrollBarContainer = document.createElement('div');
@@ -312,22 +314,22 @@ const BigTable = (function() {
         scrollBarContainer.style.gridTemplate = `1fr / 1fr`;
         tableContainer.appendChild(scrollBarContainer);
       }
-  
+    
       return {
         tableContainer,
         columnContainer
       };
     };
-  
+    
     // create the vertical column that will hold the value cells for a given
     // item property and the column header cell
     const createColumn = () => {
       const columnDiv = document.createElement('div');
       columnDiv.className = `big-table-column ${this._props.columnClass || ''}`;
-  
+    
       return columnDiv;
     };
-  
+    
     // create the first cell of each column that acts as the header or title for
     // that column, which has listeners attached to it for resizing the columns
     // and moving the columns
@@ -336,7 +338,7 @@ const BigTable = (function() {
       headerDiv.className = `big-table-header ${this._props.headerClass || ''}`;
       headerDiv.textContent = headerName;
       headerDiv.style.display = 'grid';
-  
+    
       if (this._props.enableColumnResizing || this._props.enableMoveableColumns) {
         // returns false if mouse is not in a resize hitbox, or
         // 'left'/'right' if it is (signifying which side of the header).
@@ -346,13 +348,13 @@ const BigTable = (function() {
           const headerRect = headerDiv.getBoundingClientRect();
           const leftEdge = Math.floor(headerRect.left);
           const rightEdge = Math.ceil(headerRect.right);
-  
+    
           const columnDivs = getColumnNodes();
-  
+    
           const firstColumn = columnDivs[0];
-  
+    
           const hitboxWidth = 10;
-  
+    
           if (
             clientX >= leftEdge &&
             clientX < leftEdge + hitboxWidth / 2 &&
@@ -374,28 +376,28 @@ const BigTable = (function() {
           // change the cursor to a resize cursor if inside a resize hitbox
           headerDiv.addEventListener('mousemove', (e) => {
             const whichResizeHitbox = isMouseInResizeHitbox(headerDiv, e.clientX);
-  
+    
             if (whichResizeHitbox && headerDiv.style.cursor !== 'col-resize') {
               headerDiv.style.cursor = 'col-resize';
             } else if (!whichResizeHitbox && headerDiv.style.cursor) {
               headerDiv.style.cursor = null;
             }
           });
-  
+    
           // reset the cursor to default if it was set to resize
           headerDiv.addEventListener('mouseout', () => {
             if (headerDiv.style.cursor) {
               headerDiv.style.cursor = null;
             }
           });
-  
+    
           // if user clicks on a resize hitbox, enable resizing and set the column
           // div to be resized
           headerDiv.addEventListener('mousedown', (e) => {
             const whichResizeHitbox = isMouseInResizeHitbox(headerDiv, e.clientX);
-  
+    
             if (!whichResizeHitbox) return;
-  
+    
             if (whichResizeHitbox === 'left') {
               // if grabbing the left hitbox, resize the element to the left
               this._props.resizeColumn = headerDiv.parentNode.previousElementSibling;
@@ -403,12 +405,12 @@ const BigTable = (function() {
               // if grabbing right hitbox, resize current element
               this._props.resizeColumn = headerDiv.parentNode;
             }
-  
+    
             this._props.resizing = true;
             this._props.previousResizeX = e.clientX;
           });
         }
-  
+    
         // add listeners for enabling column movement
         if (this._props.enableMoveableColumns) {
           headerDiv.addEventListener('mousedown', (e) => {
@@ -419,10 +421,10 @@ const BigTable = (function() {
             ) {
               return;
             }
-  
+    
             this._props.isDraggingColumn = true;
             this._props.currentDragColumnHeader = headerDiv;
-  
+    
             // track start of drag so we know where to move the header to
             // during each move
             this._props.columnDragXStart = e.clientX;
@@ -430,10 +432,10 @@ const BigTable = (function() {
           });
         }
       }
-  
+    
       return headerDiv;
     };
-  
+    
     // create a cell that will be added to a column, displaying the value for
     // the property the column is for for the object being drawn 
     const createValueCell = (value, rowNumber, propertyName, rowObject) => {
@@ -446,23 +448,23 @@ const BigTable = (function() {
           return this._props.valueParseFunctions[propertyName](value);
         }
       })();
-  
+    
       const valueCellDiv = document.createElement('div');
       valueCellDiv.className = `big-table-value-cell big-table-row-${rowNumber}` +
         ` big-table-${propertyName}-value-cell ${this._props.cellClass || ''}` +
         ` ${isInSelection(rowObject) ? 'big-table-selected' : ''}`;
       valueCellDiv.textContent = value;
       valueCellDiv.rowObject = rowObject;
-  
+    
       const tableContainer = this.node;
-  
+    
       // enable text selecting for the column the hovered value cell is in or the
       // row the value cell is in based on if shift key is pressed down
       valueCellDiv.addEventListener('mouseover', function(e) {
         const allValueCells = Array.from(
           tableContainer.getElementsByClassName(`big-table-value-cell`)
         );
-  
+    
         const valueCellsToEnableHighlightOn = Array.from(
           e.shiftKey ?
           Array.from(
@@ -474,52 +476,53 @@ const BigTable = (function() {
             tableContainer.getElementsByClassName(`big-table-${propertyName}-value-cell`)
           )
         );
-  
+    
         const valueCellsToDisableHighlightOn = allValueCells.filter((valueCell) => {
           return !valueCellsToEnableHighlightOn.includes(valueCell);
         });
-  
+    
         valueCellsToEnableHighlightOn.forEach((cell) => {
           cell.classList.add('big-table-enable-highlight')
         });
-  
+    
         valueCellsToDisableHighlightOn.forEach((cell) => {
           cell.classList.remove('big-table-enable-highlight')
         });
       });
-  
+    
       // row selection listener
       valueCellDiv.addEventListener('click', function(e) {
         handleRowSelection(e, valueCellDiv.rowObject);
         draw();
       });
-  
+    
       return valueCellDiv;
     };
   
-    /* row selection functions and variables */
-  
+    // functions for handling row selection when value cells are clicked
+    // this will keep track of which "rows" (objects) are selected
     this.selectedItems = [];
-  
+    
     const clearSelection = () => {
       while (this.selectedItems.length !== 0) {
         this.selectedItems.pop();
       }
     };
-  
+    
     const removeFromSelection = (rowObject) => {
       const i = this.selectedItems[this.selectedItems.indexOf(rowObject)];
       this.selectedItems.splice(i, 1);
     };
-  
+    
     const addToSelection = (rowObject) => {
       this.selectedItems.push(rowObject);
     };
-  
+    
     const isInSelection = (rowObject) => {
       return this.selectedItems.includes(rowObject);
     };
-  
+    
+    // this gets called on a click event for a value cell
     const handleRowSelection = (e, rowObject) => {
       if (this.selectedItems.length === 0) {
         addToSelection(rowObject);
@@ -532,7 +535,7 @@ const BigTable = (function() {
           }
         } else if (e.shiftKey) {
           const currentList = getCurrentObjectList();
-  
+    
           const selectionStartIndex = currentList.indexOf(this.selectedItems[0]);
           const clickedIndex = currentList.indexOf(rowObject);
           const startingIndex = Math.min(clickedIndex, selectionStartIndex);
@@ -550,7 +553,7 @@ const BigTable = (function() {
         }
       }
     };
-  
+    
     // removes the row selection if anything that isn't a child of the table is
     // clicked
     window.addEventListener('click', (e) => {
@@ -561,193 +564,14 @@ const BigTable = (function() {
           return true;
         }
       });
-  
+    
       if (!childOfBigTable) {
         clearSelection();
         draw();
       }
     });
   
-    /* value request functions */
-  
-    // returns the list that the user is actually looking at at any given time
-    const getCurrentObjectList = () => {
-      return this._props.sortedList || this._props.filteredList || this.masterList;
-    };
-  
-    // get the column nodes in their current order in the table
-    const getColumnNodes = () => {
-      return Array.from(this._props.columnContainer.children);
-    };
-  
-    // gets all current value cells in no particular order
-    const getValueCells = () => {
-      return Array.from(this.node.getElementsByClassName('big-table-value-cell'));
-    };
-  
-    // gets the header title for a column from a property name
-    const getHeaderTitle = (propertyName) => {
-      return this.headerMap ? this.headerMap[propertyName] : propertyName;
-    };
-  
-    // gets the current column grid template as an array for use with column
-    // movement logic
-    const getColumnContainerGridTemplateArray = () => {
-      return this._props.columnContainer.style.gridTemplateColumns.split(' ');
-    };
-  
-    /* value update functions */
-  
-    // easily update a specific column grid template value by index
-    const updateColumnGridTemplate = (i, value) => {
-      const gridTemplateString = this._props.columnContainer.style
-        .gridTemplateColumns;
-      const gridTemplateArr = gridTemplateString.split(' ');
-      gridTemplateArr[i] = value;
-  
-      this._props.columnContainer.style.gridTemplateColumns = gridTemplateArr.join(' ');
-    };
-  
-    /* functions for applying user supplied event listeners to nodes */
-  
-    // check to see if any listeners were provided for the given type of node 
-    // (headers, cells, etc) and the given property/column
-    const findListenerObjectsFor = (listenerType, propertyName) => {
-      // figure out if a listener was provided for this type (header/value cell)
-      const listenersFromPropertyName =
-        this._props[listenerType + 'Listeners'][propertyName];
-      const listenersFromAll = this._props[listenerType + 'Listeners']['all'];
-      const listenerObjects = listenersFromPropertyName || listenersFromAll;
-  
-      return listenerObjects;
-    };
-  
-    // take an array of listener objects and apply them to the supplied node
-    const applyListenerObjects = (type, node, listenerObjects, propertyName, object) => {
-      if (listenerObjects) {
-        listenerObjects.forEach((listenerObject) => {
-          const {eventName, listener} = listenerObject;
-          
-          if (type === 'header') {
-            node.addEventListener(eventName, (e) => {
-              listener(e, {
-                node,
-                propertyName: propertyName,
-                headerTitle: this.headerMap[propertyName] || propertyName,
-              });
-            });
-          } else if (type === 'cell') {
-            node.addEventListener(eventName, (e) => {
-              listener(e, {
-                node,
-                propertyName: propertyName,
-                headerTitle: this.headerMap[propertyName] || propertyName,
-                object
-              });
-            });
-          }
-            
-        });
-      }
-    };
-  
-    // creates the columns and column headers if they aren't present, then
-    // dletes all current value cells and creates new value cells based on the
-    // current offset and current item list
-    const draw = () => {
-      // create the columns and headers if they don't already exist
-      if (!this._props.columnDivs) {
-        // map of property names to column nodes
-        this._props.columnDivs = {};
-        
-        // create a column and header node for each item property in the table
-        for (const propertyName of this.itemProperties) {
-          const columnDiv = createColumn();
-          this._props.columnDivs[propertyName] = columnDiv;
-          this._props.columnContainer.appendChild(columnDiv);
-          
-          const headerTitle = getHeaderTitle(propertyName);
-          const headerDiv = createHeader(headerTitle);
-          columnDiv.appendChild(headerDiv);
-          
-          // apply user supplied listeners to the header if there are any
-          if (this._props.headerListeners) {
-            const listenerObjects = findListenerObjectsFor('header', propertyName);
-            applyListenerObjects('header', headerDiv, listenerObjects, propertyName);
-          }
-        }
-      }
-  
-      // grab a reference to the current list once instead in each loop iteration
-      const objectListToUse = getCurrentObjectList();
-  
-      // map of document fragments for the value cells for each column node
-      const valueCellFragements = {};
-  
-      // create the values cells for each column node
-      for (const propertyName of this.itemProperties) {
-        valueCellFragements[propertyName] = document.createDocumentFragment();
-  
-        // create all the value cells for this column
-        for (let i = this.offset; i < this._props.rowCount + this.offset; i++) {
-          const currentObj = objectListToUse[i];
-  
-          // if the current list can't fill the table, break out early
-          if (currentObj === undefined) break;
-  
-          const cellValue = currentObj[propertyName] !== undefined ?
-            currentObj[propertyName] : NO_VALUE;
-          
-          const valueCellDiv = createValueCell(
-            cellValue, i, propertyName, currentObj
-          );
-  
-          valueCellFragements[propertyName].appendChild(valueCellDiv);
-  
-          // apply user supplied listeners to the header if there are any
-          if (this._props.cellListeners) {
-            const listenerObjects = findListenerObjectsFor('cell', propertyName);
-            applyListenerObjects(
-              'cell', valueCellDiv, listenerObjects, propertyName, currentObj
-            );
-          }
-        }
-      }
-      
-      // erase all the current value cells
-      getValueCells().forEach((cell) => cell.remove());
-  
-      // append the value cells to their columns
-      for (const propertyName in this._props.columnDivs) {
-        this._props.columnDivs[propertyName].appendChild(
-          valueCellFragements[propertyName]
-        );
-      }
-    };
-  
-    // used when the table contents need to change other than when scrolling,
-    // such as when filtering, sorting, or clearing either of those
-    const updateTableForNewList = () => {
-      this.offset = 0;
-      if (this._props.showVerticalScrollBar) {
-        this._props.scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
-        updateScrollHead();
-      }
-      draw();
-    };
-  
-    // used to maintain the current sort after the table list gets changed, such
-    // as after a filter or a clear filter
-    const updateSort = () => {
-      this.sort({
-        propertyName: this.currentSortProperty,
-        direction: this.currentSortDirection
-      }, true);
-    };
-  
-  
-    /* SCROLLING STUFF */
-  
+    // functions for creating and giving function to both scroll bars
     /* VERTICAL SCROLLING */
     
     // returns the maximum the table offset can be without showing blank space
@@ -871,7 +695,6 @@ const BigTable = (function() {
       scrollBarTrack.appendChild(scrollBarHead);
       this._props.scrollBarContainer.appendChild(scrollBarTrack);
     };
-  
     /* HORIZONTAL SCROLLING */
     
     // calculates the total pixel width of all columns
@@ -991,9 +814,195 @@ const BigTable = (function() {
       this._props.horizontalScrollBarContainer.appendChild(horizontalScrollBarTrack);
     };
   
-    /**********************************
-    ** PUBLIC METHODS AND PROPERTIES **
-    ***********************************/
+  
+  
+    /* VALUE REQUEST FUNCTIONS */
+  
+    // returns the list that the user is actually looking at at any given time
+    const getCurrentObjectList = () => {
+      return this._props.sortedList || this._props.filteredList || this.masterList;
+    };
+  
+    // get the column nodes in their current order in the table
+    const getColumnNodes = () => {
+      return Array.from(this._props.columnContainer.children);
+    };
+  
+    // gets all current value cells in no particular order
+    const getValueCells = () => {
+      return Array.from(this.node.getElementsByClassName('big-table-value-cell'));
+    };
+  
+    // gets the header title for a column from a property name
+    const getHeaderTitle = (propertyName) => {
+      return this.headerMap ? this.headerMap[propertyName] : propertyName;
+    };
+  
+    // gets the current column grid template as an array for use with column
+    // movement logic
+    const getColumnContainerGridTemplateArray = () => {
+      return this._props.columnContainer.style.gridTemplateColumns.split(' ');
+    };
+  
+  
+  
+    /* VALUE UPDATE FUNCTIONS */
+  
+    // easily update a specific column grid template value by index
+    const updateColumnGridTemplate = (i, value) => {
+      const gridTemplateString = this._props.columnContainer.style
+        .gridTemplateColumns;
+      const gridTemplateArr = gridTemplateString.split(' ');
+      gridTemplateArr[i] = value;
+  
+      this._props.columnContainer.style.gridTemplateColumns = gridTemplateArr.join(' ');
+    };
+  
+  
+  
+    /* functions for applying user supplied event listeners to nodes */
+  
+    // check to see if any listeners were provided for the given type of node 
+    // (headers, cells, etc) and the given property/column
+    const findListenerObjectsFor = (listenerType, propertyName) => {
+      // figure out if a listener was provided for this type (header/value cell)
+      const listenersFromPropertyName =
+        this._props[listenerType + 'Listeners'][propertyName];
+      const listenersFromAll = this._props[listenerType + 'Listeners']['all'];
+      const listenerObjects = listenersFromPropertyName || listenersFromAll;
+  
+      return listenerObjects;
+    };
+  
+    // take an array of listener objects and apply them to the supplied node
+    const applyListenerObjects = (type, node, listenerObjects, propertyName, object) => {
+      if (listenerObjects) {
+        listenerObjects.forEach((listenerObject) => {
+          const {eventName, listener} = listenerObject;
+          
+          if (type === 'header') {
+            node.addEventListener(eventName, (e) => {
+              listener(e, {
+                node,
+                propertyName: propertyName,
+                headerTitle: this.headerMap[propertyName] || propertyName,
+              });
+            });
+          } else if (type === 'cell') {
+            node.addEventListener(eventName, (e) => {
+              listener(e, {
+                node,
+                propertyName: propertyName,
+                headerTitle: this.headerMap[propertyName] || propertyName,
+                object
+              });
+            });
+          }
+            
+        });
+      }
+    };
+  
+    
+    /* DRAWING FUNCTIONS */
+  
+    // creates the columns and column headers if they aren't present, then
+    // dletes all current value cells and creates new value cells based on the
+    // current offset and current item list
+    const draw = () => {
+      // create the columns and headers if they don't already exist
+      if (!this._props.columnDivs) {
+        // map of property names to column nodes
+        this._props.columnDivs = {};
+        
+        // create a column and header node for each item property in the table
+        for (const propertyName of this.itemProperties) {
+          const columnDiv = createColumn();
+          this._props.columnDivs[propertyName] = columnDiv;
+          this._props.columnContainer.appendChild(columnDiv);
+          
+          const headerTitle = getHeaderTitle(propertyName);
+          const headerDiv = createHeader(headerTitle);
+          columnDiv.appendChild(headerDiv);
+          
+          // apply user supplied listeners to the header if there are any
+          if (this._props.headerListeners) {
+            const listenerObjects = findListenerObjectsFor('header', propertyName);
+            applyListenerObjects('header', headerDiv, listenerObjects, propertyName);
+          }
+        }
+      }
+  
+      // grab a reference to the current list once instead in each loop iteration
+      const objectListToUse = getCurrentObjectList();
+  
+      // map of document fragments for the value cells for each column node
+      const valueCellFragements = {};
+  
+      // create the values cells for each column node
+      for (const propertyName of this.itemProperties) {
+        valueCellFragements[propertyName] = document.createDocumentFragment();
+  
+        // create all the value cells for this column
+        for (let i = this.offset; i < this._props.rowCount + this.offset; i++) {
+          const currentObj = objectListToUse[i];
+  
+          // if the current list can't fill the table, break out early
+          if (currentObj === undefined) break;
+  
+          const cellValue = currentObj[propertyName] !== undefined ?
+            currentObj[propertyName] : NO_VALUE;
+          
+          const valueCellDiv = createValueCell(
+            cellValue, i, propertyName, currentObj
+          );
+  
+          valueCellFragements[propertyName].appendChild(valueCellDiv);
+  
+          // apply user supplied listeners to the header if there are any
+          if (this._props.cellListeners) {
+            const listenerObjects = findListenerObjectsFor('cell', propertyName);
+            applyListenerObjects(
+              'cell', valueCellDiv, listenerObjects, propertyName, currentObj
+            );
+          }
+        }
+      }
+      
+      // erase all the current value cells
+      getValueCells().forEach((cell) => cell.remove());
+  
+      // append the value cells to their columns
+      for (const propertyName in this._props.columnDivs) {
+        this._props.columnDivs[propertyName].appendChild(
+          valueCellFragements[propertyName]
+        );
+      }
+    };
+  
+    // used when the table contents need to change other than when scrolling,
+    // such as when filtering, sorting, or clearing either of those
+    const updateTableForNewList = () => {
+      this.offset = 0;
+      if (this._props.showVerticalScrollBar) {
+        this._props.scrollBarHead.style.height = determineScrollBarScalingAmount() + '%';
+        updateScrollHead();
+      }
+      draw();
+    };
+  
+    // used to maintain the current sort after the table list gets changed, such
+    // as after a filter or a clear filter
+    const updateSort = () => {
+      this.sort({
+        propertyName: this.currentSortProperty,
+        direction: this.currentSortDirection
+      }, true);
+    };
+  
+  
+  
+    /* PUBLIC METHODS AND PROPERTIES */
   
     // this simply exposes the "clearSelection" function used for removing all
     // row selections so the user can call it
@@ -1107,15 +1116,16 @@ const BigTable = (function() {
         }
       }
   
-      const validateColumns = (propertyName) => {
-        const columnNames = options[propertyName];
+      const validateColumns = (optionPropertyName) => {
+        const columnNames = options[optionPropertyName];
         const invalidColumnName = columnNames.find((name) => {
           return !this.itemProperties.includes(name);
         });
   
         if (invalidColumnName) {
-          throw Utils.generateError(`A ${propertyName} value was supplied, but` +
-          ` it contains an invalid column name: ${invalidColumnName}`);
+          throw Utils.generateError(`A ${optionPropertyName} value was` +
+          ` supplied, but it contains an invalid column name:`
+          ` ${invalidColumnName}`);
         }
       }
   
@@ -1309,6 +1319,86 @@ const BigTable = (function() {
   
       this.node.dispatchEvent(new CustomEvent('btclearfilter'));
     };
+  
+  
+  
+    /* ITEM SET METHODS */
+  
+    this.goToItemSet = (index) => {
+      const indexAsNumber = Number(index);
+  
+      // assert that index value is an integer or can be parsed to an integer
+      if (isNaN(indexAsNumber) && indexAsNumber % 1 === 0) {
+        throw Utils.generateError(`table.goToItemSet(Number index) was provided` +
+          ` a non-integer value of "${index}".`);
+      }
+  
+      // assert that index is not outside the bounds of the itemSetFilters array
+      if (index < 0 || index > this._props.itemSetFilters.length - 1) {
+        throw Utils.generateError(`table.goToItemSet(Number index) was provided` +
+          ` an index of "${indexAsNumber}" which is  outside the bounds of the` +
+          ` current itemSetFilters array.`);
+      }
+  
+      // log the current index before changing the item set for firing the event
+      const previousIndex = this._props.currentItemSetIndex;
+  
+      // update the item set
+      this.filter(this._props.itemSetFilters[indexAsNumber].filter);
+      this._props.currentItemSetIndex = indexAsNumber;
+  
+      // fire an item set change event
+      this.node.dispatchEvent(new CustomEvent('btitemsetchange', {
+        detail: {
+          previousIndex,
+          currentIndex: indexAsNumber,
+          setTitle: this._props.itemSetFilters[indexAsNumber].setTitle || null
+        }
+      }));
+    };
+  
+    this.goToNextItemSet = () => {
+      if (this._props.currentItemSetIndex === null) return false;
+      
+      if (this._props.currentItemSetIndex < this._props.itemSetFilters.length - 1) {
+        this.goToItemSet(this._props.currentItemSetIndex + 1);
+        return true;
+      } else {
+        return false;
+      }
+    };
+  
+    this.goToPreviousItemSet = () => {
+      if (this._props.currentItemSetIndex === null) return false;
+      
+      if (this._props.currentItemSetIndex > 0) {
+        this.goToItemSet(this._props.currentItemSetIndex - 1);
+        return true;
+      } else {
+        return false;
+      }
+    };
+  
+    this.clearItemSet = () => {
+      // log the current index before changing the item set for firing the event
+      const previousIndex = this._props.currentItemSetIndex;
+  
+      this._props.currentItemSetIndex = null;
+      this.clearFilter();
+  
+      // fire an item set change event
+      this.node.dispatchEvent(new CustomEvent('btitemsetchange', {
+        detail: {
+          previousIndex,
+          currentIndex: null,
+          setTitle: null
+        }
+      }));
+    };
+  
+  
+  
+    /* SORTING METHODS */
   
     this.sort = (options, performingSortUpdate) => {
       /*
@@ -1505,6 +1595,7 @@ const BigTable = (function() {
     this._props.headerListeners = options.headerListeners || null;
     this._props.cellListeners = options.cellListeners || null;
     this._props.columnWidths = options.columnWidths || null;
+    this._props.itemSetFilters = options.itemSetFilters || null;
   
     // flag options supplied by user
     this._props.showVerticalScrollBar = options.showVerticalScrollBar || false;
@@ -1961,6 +2052,10 @@ const BigTable = (function() {
   
       this._props.fastestBenchmarkMap = fastestBenchmarkMap;
     }
+  
+    if (this._props.itemSetFilters) {
+      this._props.currentItemSetIndex = null;
+    }
   }
   return function(itemList, options) {
     /*
@@ -2001,6 +2096,9 @@ const BigTable = (function() {
           for sorting
           Ex: If sorting by prop1, for identical values, use prop2
           to sort by, and for identical prop2 values, use prop3, etc
+  
+        itemSetFilters: object with two properties; "setTitle" (a string 
+          specifying the title for the set) and "filter" (a valid filter object)
       
     */
   
@@ -2029,6 +2127,7 @@ const BigTable = (function() {
       'headerListeners',
       'cellListeners',
       'valueParseFunctions',
+      'itemSetFilters'
     ];
     for (const prop in options) {
       if (!validOptions.includes(prop)) {
@@ -2295,6 +2394,40 @@ const BigTable = (function() {
             ` A function was expected.`);
         }
       }
+    }
+  
+    if (options.itemSetFilters) {
+      // assert that the value is an array
+      if (!Array.isArray(options.itemSetFilters)) {
+        throw Utils.generateError(`Value passed to itemSetFilters was a` +
+          ` ${typeof options.itemSetFilters}.  Expected an array.`)
+      }
+  
+      // assert that there is an a filter object on each item set filter,
+      // and validate the setTitle value if it exists
+      options.itemSetFilters.forEach((itemSetFilter) => {
+        // validate the setTItle if it exists
+        if (itemSetFilter.setTitle) {
+          if (!Utils.isString(itemSetFilter.setTitle)) {
+            throw Utils.generateError(`The setTitle provided on one of the` +
+              ` itemSetFilter objects is a "${typeof itemSetFilter.setTitle}"` +
+              `, but a string was expected.`);
+          }
+        }
+  
+        // assert that the filter exists
+        if (!itemSetFilter.filter) {
+          throw Utils.generateError(`No filter object was provided on one of` +
+            ` the itemSetFilter objects.`);
+        }
+  
+        // assert that the value of the filter is an object
+        if (typeof itemSetFilter.filter !== 'object') {
+          throw Utils.generateError(`The filter object provided on one of` +
+            ` the itemSetFilter objects was a "${typeof itemSetFilter.filter}"` +
+            `, but an object was expected.`);
+        }
+      });
     }
   
     return new BigTable(itemList, options);  

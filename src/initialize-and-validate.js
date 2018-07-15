@@ -37,6 +37,9 @@ return function(itemList, options) {
         for sorting
         Ex: If sorting by prop1, for identical values, use prop2
         to sort by, and for identical prop2 values, use prop3, etc
+
+      itemSetFilters: object with two properties; "setTitle" (a string 
+        specifying the title for the set) and "filter" (a valid filter object)
     
   */
 
@@ -65,6 +68,7 @@ return function(itemList, options) {
     'headerListeners',
     'cellListeners',
     'valueParseFunctions',
+    'itemSetFilters'
   ];
   for (const prop in options) {
     if (!validOptions.includes(prop)) {
@@ -331,6 +335,40 @@ return function(itemList, options) {
           ` A function was expected.`);
       }
     }
+  }
+
+  if (options.itemSetFilters) {
+    // assert that the value is an array
+    if (!Array.isArray(options.itemSetFilters)) {
+      throw Utils.generateError(`Value passed to itemSetFilters was a` +
+        ` ${typeof options.itemSetFilters}.  Expected an array.`)
+    }
+
+    // assert that there is an a filter object on each item set filter,
+    // and validate the setTitle value if it exists
+    options.itemSetFilters.forEach((itemSetFilter) => {
+      // validate the setTItle if it exists
+      if (itemSetFilter.setTitle) {
+        if (!Utils.isString(itemSetFilter.setTitle)) {
+          throw Utils.generateError(`The setTitle provided on one of the` +
+            ` itemSetFilter objects is a "${typeof itemSetFilter.setTitle}"` +
+            `, but a string was expected.`);
+        }
+      }
+
+      // assert that the filter exists
+      if (!itemSetFilter.filter) {
+        throw Utils.generateError(`No filter object was provided on one of` +
+          ` the itemSetFilter objects.`);
+      }
+
+      // assert that the value of the filter is an object
+      if (typeof itemSetFilter.filter !== 'object') {
+        throw Utils.generateError(`The filter object provided on one of` +
+          ` the itemSetFilter objects was a "${typeof itemSetFilter.filter}"` +
+          `, but an object was expected.`);
+      }
+    });
   }
 
   return new BigTable(itemList, options);  

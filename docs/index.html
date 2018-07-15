@@ -138,6 +138,20 @@
   </script>
   <script>
 
+  const itemSetFilters = [];
+
+  names.forEach((name) => {
+    itemSetFilters.push({
+      setTitle: `All of the people with the name ${name}`,
+      filter: {
+        whitelistTerms: name,
+        whitelistProperties: 'name',
+        whitelistMatchAll: true,
+        caseSensitive: true
+      }
+    });
+  });
+
   /* Using BigTables */
 
   const t = BigTable(itemList, {
@@ -153,12 +167,16 @@
     horizontalScrollBarTrackClass: 'horizontal-scroll-bar-track-class',
     horizontalScrollBarHeadClass: 'horizontal-scroll-bar-head-class',
 
+    /* flags */
     showVerticalScrollBar: true,
     showHorizontalScrollBar: true,
     enableSelection: true,
     enableColumnResizing: true,
     enableMoveableColumns: true,
     optimizeSorting: true,
+
+    itemSetFilters: itemSetFilters,
+
     propertyMode: 'all',
     // properties: ['name', 'birthTime'],
     headerMap: {
@@ -228,6 +246,7 @@
   t.node.addEventListener('btsort', (e) => console.log(e));
   t.node.addEventListener('btsort', (e) => console.log(e.detail));
   t.node.addEventListener('btclearsort', (e) => console.log(e));
+  t.node.addEventListener('btitemsetchange', (e) => console.log(e));
   
   </script>
   <script>
