@@ -1,4 +1,4 @@
-NOTE:  This utility has not officially released yet.  v1.0 is still under development.
+**NOTE**:  This utility has not officially released yet.  v1.0 is still under development.
 
 The goal of BigTables is to allow you to display large amounts of data in a tabular structure without slowing your page down, as well as giving you numerous tools to make that data easier to view manage.
 
